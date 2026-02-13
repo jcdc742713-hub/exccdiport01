@@ -17,6 +17,14 @@ class DatabaseSeeder extends Seeder
 
         // Clear existing data (optional - comment out if you want to preserve data)
         $this->command->info('🗑️  Clearing existing data...');
+        
+        // NEW: Clear workflow-related tables first (due to foreign key constraints)
+        DB::table('workflow_approvals')->delete();
+        DB::table('workflow_instances')->delete();
+        DB::table('workflows')->delete();
+        DB::table('accounting_transactions')->delete();
+        
+        // Existing table clears
         DB::table('payments')->delete();
         DB::table('transactions')->delete();
         DB::table('student_assessments')->delete();
@@ -43,12 +51,22 @@ class DatabaseSeeder extends Seeder
         $this->call(FeeSeeder::class);
         $this->command->newLine();
 
-        $this->command->info('📋 Step 4: Creating Student Assessments & Transactions...');
+        // NEW: Seed workflows BEFORE assessments so they're available for use
+        $this->command->info('⚙️  Step 4: Seeding Workflow Templates...');
+        $this->call(WorkflowSeeder::class);
+        $this->command->newLine();
+
+        $this->command->info('📋 Step 5: Creating Student Assessments & Transactions...');
         $this->call(ComprehensiveAssessmentSeeder::class);
         $this->command->newLine();
 
-        $this->command->info('🔔 Step 5: Seeding Notifications...');
+        $this->command->info('🔔 Step 6: Seeding Notifications...');
         $this->call(NotificationSeeder::class);
+        $this->command->newLine();
+
+        // NEW: Optionally create some sample workflow instances
+        $this->command->info('🔄 Step 7: Creating Sample Workflow Instances...');
+        $this->call(WorkflowInstanceSeeder::class);
         $this->command->newLine();
 
         $this->command->info('✅ Database seeding completed successfully!');
@@ -87,6 +105,16 @@ class DatabaseSeeder extends Seeder
         $transactionCount = \App\Models\Transaction::count();
         $paymentCount = \App\Models\Payment::count();
         
+        // NEW: Workflow statistics
+        $workflowCount = \App\Models\Workflow::count();
+        $workflowInstanceCount = \App\Models\WorkflowInstance::count();
+        $activeWorkflows = \App\Models\WorkflowInstance::whereIn('status', ['pending', 'in_progress'])->count();
+        $completedWorkflows = \App\Models\WorkflowInstance::where('status', 'completed')->count();
+        $pendingApprovals = \App\Models\WorkflowApproval::where('status', 'pending')->count();
+        
+        // NEW: Students with workflows
+        $studentsWithWorkflows = \App\Models\Student::has('workflowInstances')->count();
+        
         $this->command->table(
             ['Category', 'Count'],
             [
@@ -111,6 +139,15 @@ class DatabaseSeeder extends Seeder
                 ['├─ Student Assessments', $assessmentCount],
                 ['├─ Transactions', $transactionCount],
                 ['└─ Payment Records', $paymentCount],
+                ['', ''],
+                // NEW: Workflow statistics section
+                ['Workflow System', ''],
+                ['├─ Workflow Templates', $workflowCount],
+                ['├─ Total Workflow Instances', $workflowInstanceCount],
+                ['├─ Active Workflows', $activeWorkflows],
+                ['├─ Completed Workflows', $completedWorkflows],
+                ['├─ Pending Approvals', $pendingApprovals],
+                ['└─ Students with Workflows', $studentsWithWorkflows],
             ]
         );
         
@@ -127,11 +164,37 @@ class DatabaseSeeder extends Seeder
         );
         
         $this->command->newLine();
+        $this->command->info('⚙️  WORKFLOW TEMPLATES CREATED');
+        $this->command->info('═══════════════════════════════════════════════════════');
+        
+        $workflows = \App\Models\Workflow::all();
+        if ($workflows->isNotEmpty()) {
+            $workflowData = $workflows->map(function ($workflow) {
+                return [
+                    $workflow->name,
+                    $workflow->type,
+                    count($workflow->steps) . ' steps',
+                    $workflow->is_active ? '✓ Active' : '✗ Inactive',
+                ];
+            })->toArray();
+            
+            $this->command->table(
+                ['Workflow Name', 'Type', 'Steps', 'Status'],
+                $workflowData
+            );
+        } else {
+            $this->command->warn('No workflows created. Run WorkflowSeeder separately.');
+        }
+        
+        $this->command->newLine();
         $this->command->info('💡 TIPS');
         $this->command->info('═══════════════════════════════════════════════════════');
         $this->command->info('• All students have complete assessments and transactions');
         $this->command->info('• Students with balances have payment history');
         $this->command->info('• Graduated students (4th year) have zero balance');
+        $this->command->info('• Workflow templates are ready for student enrollment processes');
+        $this->command->info('• Sample workflow instances created for testing');
+        $this->command->info('• Check /approvals to see pending approval requests');
         $this->command->info('• Run: php artisan db:seed --class=DatabaseSeeder to re-seed');
         $this->command->newLine();
     }

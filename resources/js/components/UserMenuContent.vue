@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import UserInfo from '@/components/UserInfo.vue';
-import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { logout } from '@/routes';
-import { edit } from '@/routes/profile';
+import {
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import type { User, StudentUser } from '@/types';
 import { Link, router } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
+import { edit } from '@/routes/profile';
 
 interface Props {
-    user: User | StudentUser
+    user: User | StudentUser;
 }
 
-const handleLogout = () => {
-    router.flushAll();
-};
-
 defineProps<Props>();
+
+const handleLogout = () => {
+    router.post('/logout');
+};
 </script>
 
 <template>
@@ -24,20 +28,33 @@ defineProps<Props>();
             <UserInfo :user="user" :show-email="true" />
         </div>
     </DropdownMenuLabel>
+
     <DropdownMenuSeparator />
+
     <DropdownMenuGroup>
-        <DropdownMenuItem :as-child="true">
-            <Link class="block w-full" :href="edit()" prefetch as="button">
+        <DropdownMenuItem as-child>
+            <Link
+                class="block w-full"
+                :href="edit()"
+                as="button"
+            >
                 <Settings class="mr-2 h-4 w-4" />
                 Settings
             </Link>
         </DropdownMenuItem>
     </DropdownMenuGroup>
+
     <DropdownMenuSeparator />
-    <DropdownMenuItem :as-child="true">
-        <Link class="block w-full" :href="logout()" @click="handleLogout" as="button">
+
+    <!-- ✅ POST logout (NO GET REQUEST) -->
+    <DropdownMenuItem as-child>
+        <button
+            type="button"
+            class="flex w-full items-center px-2 py-1.5 text-sm"
+            @click="handleLogout"
+        >
             <LogOut class="mr-2 h-4 w-4" />
             Log out
-        </Link>
+        </button>
     </DropdownMenuItem>
 </template>

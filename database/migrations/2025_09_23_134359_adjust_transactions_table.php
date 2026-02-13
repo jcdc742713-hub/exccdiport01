@@ -20,9 +20,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('transactions', function (Blueprint $table) {
-            // Rollback
-            $table->enum('type', ['charge','payment'])->default('charge')->change();
-            $table->dropColumn('kind');
+            // Rollback: only drop if column exists
+            if (Schema::hasColumn('transactions', 'kind')) {
+                $table->dropColumn('kind');
+            }
+            if (Schema::hasColumn('transactions', 'type')) {
+                $table->enum('type', ['charge','payment'])->default('charge')->change();
+            }
         });
     }
 };

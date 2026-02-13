@@ -193,10 +193,8 @@ class ComprehensiveAssessmentSeeder extends Seeder
                 }
             }
 
-            // Update account balance to match calculated balance
-            $student->account->update([
-                'balance' => -$currentBalance
-            ]);
+            // ✅ Let AccountService::recalculate() handle the balance update
+            // The transactions created above will trigger it automatically
         }
 
         $this->command->info('✓ Assessments and transactions generated successfully!');

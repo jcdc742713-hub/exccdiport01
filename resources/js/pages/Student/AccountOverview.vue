@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
+import PaymentTermsBreakdown from '@/components/PaymentTermsBreakdown.vue'
 import { CreditCard, Calendar, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-vue-next'
 
 type Fee = {
@@ -56,6 +57,19 @@ type Assessment = {
   created_at: string
 }
 
+type PaymentTerm = {
+  id: number
+  term_name: string
+  term_order: number
+  percentage: number
+  amount: number
+  balance: number
+  due_date: string
+  status: string
+  remarks: string | null
+  paid_date: string | null
+}
+
 const props = withDefaults(defineProps<{
   account: Account
   transactions: Transaction[]
@@ -63,12 +77,14 @@ const props = withDefaults(defineProps<{
   currentTerm?: CurrentTerm
   tab?: string
   latestAssessment?: Assessment
+  paymentTerms?: PaymentTerm[]
 }>(), {
   currentTerm: () => ({
     year: new Date().getFullYear(),
     semester: '1st Sem'
   }),
-  tab: 'fees'
+  tab: 'fees',
+  paymentTerms: () => []
 })
 
 const breadcrumbs = [
@@ -116,7 +132,7 @@ const paymentForm = useForm({
   payment_method: 'cash',
   reference_number: '',
   paid_at: new Date().toISOString().split('T')[0],
-  description: 'Payment for fees',
+  description: '',
 })
 
 const formatCurrency = (amount: number) => {
@@ -220,7 +236,7 @@ const submitPayment = () => {
       paymentForm.payment_method = 'cash'
       paymentForm.reference_number = ''
       paymentForm.paid_at = new Date().toISOString().split('T')[0]
-      paymentForm.description = 'Payment for fees'
+      paymentForm.description = ''
       
       // Switch to payment history tab to see the new payment
       activeTab.value = 'history'
@@ -304,25 +320,7 @@ const submitPayment = () => {
         </div>
       </div>
 
-      <!-- Payment Progress Bar (if there's a balance) -->
-      <div v-if="totalAssessmentFee > 0" class="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div class="flex justify-between items-center mb-4">
-          <h2 class="text-xl font-semibold">Payment Progress</h2>
-          <span class="text-2xl font-bold text-blue-600">
-            {{ Math.round((totalPaid / totalAssessmentFee) * 100) }}%
-          </span>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-4">
-          <div
-            class="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-500"
-            :style="{ width: `${Math.min((totalPaid / totalAssessmentFee) * 100, 100)}%` }"
-          ></div>
-        </div>
-        <div class="flex justify-between mt-2 text-sm text-gray-600">
-          <span>{{ formatCurrency(totalPaid) }} paid</span>
-          <span>{{ formatCurrency(totalAssessmentFee) }} total</span>
-        </div>
-      </div>
+
 
       <!-- Tabs -->
       <div class="bg-white rounded-lg shadow-md mb-6">
@@ -397,6 +395,11 @@ const submitPayment = () => {
               </div>
             </div>
 
+            <!-- Payment Terms Breakdown -->
+            <div v-if="paymentTerms.length > 0" class="mb-8">
+              <PaymentTermsBreakdown :terms="paymentTerms" :total-assessment="latestAssessment?.total_assessment || 0" />
+            </div>
+
             <!-- Fees by Category -->
             <div v-if="feesByCategory.length" class="space-y-6">
               <div v-for="categoryGroup in feesByCategory" :key="categoryGroup.category" class="space-y-2">
@@ -427,30 +430,30 @@ const submitPayment = () => {
               No fees assigned yet.
             </p>
 
-            <!-- Pending Charges -->
-            <div v-if="pendingCharges.length" class="mt-8 border-t pt-6">
-              <h3 class="text-md font-semibold mb-4 text-red-700 flex items-center gap-2">
+            <!-- Pending Payment Terms -->
+            <div v-if="paymentTerms && paymentTerms.filter(t => t.status === 'pending' || t.status === 'partial').length" class="mt-8 border-t pt-6">
+              <h3 class="text-md font-semibold mb-4 text-orange-700 flex items-center gap-2">
                 <Clock :size="20" />
-                PENDING CHARGES
+                PENDING PAYMENT TERMS
               </h3>
               <div class="space-y-3">
                 <div
-                  v-for="charge in pendingCharges"
-                  :key="charge.id"
-                  class="flex justify-between items-center p-3 bg-red-50 rounded border border-red-200"
+                  v-for="term in paymentTerms.filter(t => t.status === 'pending' || t.status === 'partial')"
+                  :key="term.id"
+                  class="flex justify-between items-center p-3 bg-orange-50 rounded border border-orange-200"
                 >
                   <div>
-                    <p class="font-medium text-gray-900">
-                      {{ charge.fee?.name || charge.meta?.fee_name || charge.meta?.subject_name || charge.type }}
-                    </p>
-                    <p class="text-xs text-gray-600">{{ charge.reference }}</p>
-                    <p v-if="charge.meta?.subject_code" class="text-xs text-gray-500">
-                      {{ charge.meta.subject_code }}
+                    <p class="font-medium text-gray-900">{{ term.term_name }}</p>
+                    <p class="text-xs text-gray-600">{{ term.percentage }}% of assessment</p>
+                    <p v-if="term.due_date" class="text-xs text-gray-500">
+                      Due: {{ formatDate(term.due_date) }}
                     </p>
                   </div>
                   <div class="text-right">
-                    <p class="text-lg font-semibold text-red-600">{{ formatCurrency(charge.amount) }}</p>
-                    <span class="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded">Pending</span>
+                    <p class="text-lg font-semibold">{{ formatCurrency(term.balance) }}</p>
+                    <span class="text-xs px-2 py-1 rounded" :class="term.status === 'partial' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'">
+                      {{ term.status }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -582,16 +585,20 @@ const submitPayment = () => {
                   </div>
                 </div>
 
-                <!-- Description -->
+                <!-- Payment Term -->
                 <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <input
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Payment Term</label>
+                  <select
                     v-model="paymentForm.description"
-                    placeholder="Payment description"
                     required
-                    :disabled="remainingBalance <= 0"
+                    :disabled="remainingBalance <= 0 || !paymentTerms || paymentTerms.length === 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  />
+                  >
+                    <option value="">-- Select a payment term --</option>
+                    <option v-for="term in paymentTerms" :key="term.id" :value="term.term_name">
+                      {{ term.term_name }} ({{ term.percentage }}%) - Balance: {{ formatCurrency(term.balance) }}
+                    </option>
+                  </select>
                   <div v-if="paymentForm.errors.description" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.description }}
                   </div>

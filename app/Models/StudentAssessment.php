@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentAssessment extends Model
 {
@@ -43,6 +44,11 @@ class StudentAssessment extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'user_id', 'user_id');
+    }
+
+    public function paymentTerms(): HasMany
+    {
+        return $this->hasMany(StudentPaymentTerm::class, 'student_assessment_id');
     }
 
     // Generate unique assessment number

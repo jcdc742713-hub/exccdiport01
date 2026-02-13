@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Fee;
+use App\Models\StudentAssessment;
 
 class StudentAccountController extends Controller
 {
@@ -54,10 +55,40 @@ class StudentAccountController extends Controller
             ]);
         }
 
+        // Get latest assessment with payment terms
+        $latestAssessment = StudentAssessment::where('user_id', $user->id)
+            ->with('paymentTerms')
+            ->latest('created_at')
+            ->first();
+
+        $paymentTerms = [];
+        if ($latestAssessment) {
+            $paymentTerms = $latestAssessment->paymentTerms()
+                ->orderBy('term_order')
+                ->get()
+                ->map(function ($term) {
+                    return [
+                        'id' => $term->id,
+                        'term_name' => $term->term_name,
+                        'term_order' => $term->term_order,
+                        'percentage' => $term->percentage,
+                        'amount' => (float) $term->amount,
+                        'balance' => (float) $term->balance,
+                        'due_date' => $term->due_date,
+                        'status' => $term->status,
+                        'remarks' => $term->remarks,
+                        'paid_date' => $term->paid_date,
+                    ];
+                })
+                ->toArray();
+        }
+
         return Inertia::render('Student/AccountOverview', [
-            'account'      => $user->account,
-            'transactions' => $user->transactions ?? [], // Use user->transactions, not account->transactions
-            'fees'         => $fees->values(),
+            'account'           => $user->account,
+            'transactions'      => $user->transactions ?? [], // Use user->transactions, not account->transactions
+            'fees'              => $fees->values(),
+            'latestAssessment'  => $latestAssessment,
+            'paymentTerms'      => $paymentTerms,
         ]);
     }
 }
