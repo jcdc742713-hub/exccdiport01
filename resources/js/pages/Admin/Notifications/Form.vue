@@ -33,12 +33,18 @@ const breadcrumbItems: BreadcrumbItem[] = [
   },
 ]
 
+const formatDateForInput = (dateString: string | undefined): string => {
+  if (!dateString) return ''
+  // Extract just the date part (YYYY-MM-DD) from ISO date strings
+  return dateString.split('T')[0]
+}
+
 const form = useForm({
   title: props.notification?.title || '',
   message: props.notification?.message || '',
   target_role: props.notification?.target_role || 'student',
-  start_date: props.notification?.start_date || '',
-  end_date: props.notification?.end_date || '',
+  start_date: formatDateForInput(props.notification?.start_date),
+  end_date: formatDateForInput(props.notification?.end_date),
 })
 
 const submit = () => {

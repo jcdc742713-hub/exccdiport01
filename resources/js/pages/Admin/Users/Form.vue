@@ -38,6 +38,10 @@ const submit = () => {
     form.post('/admin/users')
   }
 }
+
+const goBack = () => {
+  history.back()
+}
 </script>
 
 <template>
@@ -152,7 +156,7 @@ const submit = () => {
       <Button
         type="button"
         variant="outline"
-        @click="$router.back()"
+        @click="goBack"
       >
         Cancel
       </Button>

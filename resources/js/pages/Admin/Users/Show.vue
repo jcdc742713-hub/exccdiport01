@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3'
+import { Head, Link, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Button } from '@/components/ui/button'
 import type { BreadcrumbItem } from '@/types'
@@ -8,7 +8,7 @@ interface Props {
   admin: any
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const breadcrumbItems: BreadcrumbItem[] = [
   {
@@ -41,6 +41,16 @@ const adminTypeBadgeClass = (type: string) => {
 
 const statusBadgeClass = (status: boolean) => {
   return status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+}
+
+const deactivate = () => {
+  if (confirm('Are you sure you want to deactivate this admin?')) {
+    router.post(`/admin/users/${props.admin.id}/deactivate`)
+  }
+}
+
+const reactivate = () => {
+  router.post(`/admin/users/${props.admin.id}/reactivate`)
 }
 </script>
 
@@ -174,17 +184,3 @@ const statusBadgeClass = (status: boolean) => {
   </AppLayout>
 </template>
 
-<script lang="ts">
-export default {
-  methods: {
-    deactivate() {
-      if (confirm('Are you sure you want to deactivate this admin?')) {
-        this.$inertia.post(`/admin/users/${this.admin.id}/deactivate`)
-      }
-    },
-    reactivate() {
-      this.$inertia.post(`/admin/users/${this.admin.id}/reactivate`)
-    },
-  },
-}
-</script>
