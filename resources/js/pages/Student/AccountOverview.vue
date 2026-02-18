@@ -208,15 +208,25 @@ const feesByCategory = computed(() => {
 })
 
 const availableTermsForPayment = computed(() => {
-  return props.paymentTerms
+  const unpaidTerms = props.paymentTerms
     ?.filter(term => term.balance > 0)
-    .map(term => ({
-      id: term.id,
-      label: `${term.term_name} (${term.percentage}%) - Balance: ${formatCurrency(term.balance)}`,
-      value: term.id,
-      balance: term.balance,
-      hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
-    })) || []
+    .sort((a, b) => a.term_order - b.term_order) || []
+  
+  // Only the first unpaid term is selectable
+  const firstUnpaidIndex = unpaidTerms.length > 0 ? 0 : -1
+  
+  return unpaidTerms.map((term, index) => ({
+    id: term.id,
+    label: term.term_name,
+    term_name: term.term_name,
+    value: term.id,
+    balance: term.balance,
+    amount: term.amount,
+    due_date: term.due_date,
+    status: term.status,
+    isSelectable: index === firstUnpaidIndex,
+    hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
+  }))
 })
 
 const paymentHistory = computed(() => {
@@ -228,6 +238,13 @@ const paymentHistory = computed(() => {
 const pendingCharges = computed(() => {
   return props.transactions
     .filter(t => t.kind === 'charge' && t.status === 'pending')
+})
+
+const selectedTermInfo = computed(() => {
+  if (!paymentForm.selected_term_id) {
+    return null
+  }
+  return availableTermsForPayment.value.find(term => term.id === paymentForm.selected_term_id) || null
 })
 
 const canSubmitPayment = computed(() => {
@@ -459,32 +476,62 @@ const submitPayment = () => {
               No fees assigned yet.
             </p>
 
-            <!-- Pending Payment Terms -->
-            <div v-if="paymentTerms && paymentTerms.filter(t => t.status === 'pending' || t.status === 'partial').length" class="mt-8 border-t pt-6">
-              <h3 class="text-md font-semibold mb-4 text-orange-700 flex items-center gap-2">
+            <!-- Payment Terms Table -->
+            <div v-if="paymentTerms && paymentTerms.length" class="mt-8 border-t pt-6">
+              <h3 class="text-md font-semibold mb-4 text-gray-800 flex items-center gap-2">
                 <Clock :size="20" />
-                PENDING PAYMENT TERMS
+                PAYMENT TERMS
               </h3>
-              <div class="space-y-3">
-                <div
-                  v-for="term in paymentTerms.filter(t => t.status === 'pending' || t.status === 'partial')"
-                  :key="term.id"
-                  class="flex justify-between items-center p-3 bg-orange-50 rounded border border-orange-200"
-                >
-                  <div>
-                    <p class="font-medium text-gray-900">{{ term.term_name }}</p>
-                    <p class="text-xs text-gray-600">{{ term.percentage }}% of assessment</p>
-                    <p v-if="term.due_date" class="text-xs text-gray-500">
-                      Due: {{ formatDate(term.due_date) }}
-                    </p>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-lg font-semibold">{{ formatCurrency(term.balance) }}</p>
-                    <span class="text-xs px-2 py-1 rounded" :class="term.status === 'partial' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'">
-                      {{ term.status }}
-                    </span>
-                  </div>
-                </div>
+              <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                  <thead>
+                    <tr class="border-b-2 border-gray-300">
+                      <th class="text-left py-3 px-4 font-semibold text-gray-700">Payment Term</th>
+                      <th class="text-right py-3 px-4 font-semibold text-gray-700">Original Amount</th>
+                      <th class="text-right py-3 px-4 font-semibold text-gray-700">Current Balance</th>
+                      <th class="text-right py-3 px-4 font-semibold text-gray-700">Due Date</th>
+                      <th class="text-center py-3 px-4 font-semibold text-gray-700">Status</th>
+                      <th class="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="term in paymentTerms" :key="term.id" class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
+                      <td class="py-3 px-4 text-gray-900">{{ term.term_name }}</td>
+                      <td class="py-3 px-4 text-right text-gray-700">{{ formatCurrency(term.amount) }}</td>
+                      <td class="py-3 px-4 text-right font-medium" :class="term.balance > 0 ? 'text-red-600' : 'text-green-600'">
+                        {{ formatCurrency(term.balance) }}
+                      </td>
+                      <td class="py-3 px-4 text-right text-gray-700">{{ term.due_date ? formatDate(term.due_date) : '-' }}</td>
+                      <td class="py-3 px-4 text-center">
+                        <span class="text-xs px-2 py-1 rounded font-medium" :class="{
+                          'bg-green-100 text-green-800': term.status === 'paid',
+                          'bg-blue-100 text-blue-800': term.status === 'partial',
+                          'bg-yellow-100 text-yellow-800': term.status === 'pending'
+                        }">
+                          {{ term.status }}
+                        </span>
+                      </td>
+                      <td class="py-3 px-4 text-center">
+                        <div class="flex gap-2 justify-center">
+                          <button class="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors" title="View details">
+                            View
+                          </button>
+                          <button 
+                            v-if="term.balance > 0"
+                            @click="activeTab = 'payment'"
+                            class="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+                            title="Make payment"
+                          >
+                            Pay Now
+                          </button>
+                          <button v-else class="text-xs px-2 py-1 bg-gray-100 text-gray-400 rounded cursor-not-allowed" disabled>
+                            Paid
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -596,16 +643,25 @@ const submitPayment = () => {
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option :value="null">-- Choose a payment term --</option>
-                    <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id">
-                      {{ term.label }}
+                    <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id" :disabled="!term.isSelectable">
+                      {{ term.label }} {{ !term.isSelectable ? '(Not yet available)' : '' }}
                     </option>
                   </select>
                   <p class="text-xs text-gray-500 mt-1">
-                    Select which term to apply this payment to. Overpayments will carry over to the next term.
+                    Only the first unpaid term can be selected. Overpayments will carry over to the next term.
                   </p>
                   <div v-if="paymentForm.errors.selected_term_id" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.selected_term_id }}
                   </div>
+                </div>
+
+                <!-- Current Balance of Selected Term -->
+                <div v-if="selectedTermInfo" class="bg-blue-50 border border-blue-200 rounded-lg p-4 md:col-span-2">
+                  <p class="text-sm font-medium text-gray-700 mb-2">Current Balance ({{ selectedTermInfo.label }})</p>
+                  <p class="text-2xl font-bold text-blue-600">{{ formatCurrency(selectedTermInfo.balance) }}</p>
+                  <p class="text-xs text-gray-600 mt-2">
+                    Due: {{ formatDate(selectedTermInfo.due_date) }}
+                  </p>
                 </div>
 
                 <!-- Payment Date -->

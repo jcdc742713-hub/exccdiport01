@@ -43,7 +43,7 @@ class StudentPaymentTerm extends Model
         2 => ['name' => 'Prelim', 'percentage' => 17.86],
         3 => ['name' => 'Midterm', 'percentage' => 17.86],
         4 => ['name' => 'Semi-Final', 'percentage' => 14.88],
-        5 => ['name' => 'Final', 'percentage' => 7.26],
+        5 => ['name' => 'Final', 'percentage' => 7.25], // Changed from 7.26 to 7.25 (was 100.01%, now 100.00%)
     ];
 
     public function assessment(): BelongsTo
