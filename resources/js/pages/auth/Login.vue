@@ -18,7 +18,7 @@ import {
     Eye,
     EyeOff,
 } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ref, computed, onBeforeMount } from 'vue';
 
 defineProps<{
     status?: string;
@@ -77,8 +77,12 @@ const backToRoleSelection = () => {
 };
 
 const submit = () => {
+    // Ensure CSRF token is in the form
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    
     form.post('/login', {
         preserveScroll: true,
+        headers: csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {},
         onFinish: () => form.reset('password'),
     });
 };

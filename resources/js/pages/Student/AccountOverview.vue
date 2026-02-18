@@ -130,9 +130,9 @@ onMounted(() => {
 const paymentForm = useForm({
   amount: 0,
   payment_method: 'cash',
-  reference_number: '',
   paid_at: new Date().toISOString().split('T')[0],
   description: '',
+  selected_term_id: null as number | null,
 })
 
 const formatCurrency = (amount: number) => {
@@ -153,7 +153,7 @@ const formatDate = (date: string) => {
 // Use latest assessment if available, otherwise calculate from fees
 const totalAssessmentFee = computed(() => {
   if (props.latestAssessment) {
-    return props.latestAssessment.total_assessment
+    return Number(props.latestAssessment.total_assessment)
   }
   return props.fees.reduce((sum, fee) => sum + Number(fee.amount), 0)
 })
@@ -200,6 +200,18 @@ const feesByCategory = computed(() => {
   }))
 })
 
+const availableTermsForPayment = computed(() => {
+  return props.paymentTerms
+    ?.filter(term => term.balance > 0)
+    .map(term => ({
+      id: term.id,
+      label: `${term.term_name} (${term.percentage}%) - Balance: ${formatCurrency(term.balance)}`,
+      value: term.id,
+      balance: term.balance,
+      hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
+    })) || []
+})
+
 const paymentHistory = computed(() => {
   return props.transactions
     .filter(t => t.kind === 'payment')
@@ -234,9 +246,9 @@ const submitPayment = () => {
       paymentForm.reset()
       paymentForm.amount = 0
       paymentForm.payment_method = 'cash'
-      paymentForm.reference_number = ''
       paymentForm.paid_at = new Date().toISOString().split('T')[0]
       paymentForm.description = ''
+      paymentForm.selected_term_id = null
       
       // Switch to payment history tab to see the new payment
       activeTab.value = 'history'
@@ -397,7 +409,7 @@ const submitPayment = () => {
 
             <!-- Payment Terms Breakdown -->
             <div v-if="paymentTerms.length > 0" class="mb-8">
-              <PaymentTermsBreakdown :terms="paymentTerms" :total-assessment="latestAssessment?.total_assessment || 0" />
+              <PaymentTermsBreakdown :terms="paymentTerms" :total-assessment="totalAssessmentFee" />
             </div>
 
             <!-- Fees by Category -->
@@ -554,20 +566,27 @@ const submitPayment = () => {
                   </div>
                 </div>
 
-                <!-- Reference Number (System Generated - Disabled) -->
+                <!-- Apply to Specific Term (Optional) -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Reference Number
-                    <span class="text-xs text-gray-500">(Auto-generated)</span>
+                    Apply to Specific Term
+                    <span class="text-xs text-gray-500">(Optional)</span>
                   </label>
-                  <input
-                    value="System will generate after submission"
-                    disabled
-                    class="w-full px-4 py-2 border rounded-lg shadow-sm bg-gray-100 cursor-not-allowed text-gray-500"
-                  />
+                  <select
+                    v-model="paymentForm.selected_term_id"
+                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  >
+                    <option :value="null">Auto-distribute across all terms</option>
+                    <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id">
+                      {{ term.label }}
+                    </option>
+                  </select>
                   <p class="text-xs text-gray-500 mt-1">
-                    Reference number will be automatically generated
+                    Leave blank to automatically distribute payment across all outstanding terms
                   </p>
+                  <div v-if="paymentForm.errors.selected_term_id" class="text-red-500 text-sm mt-1">
+                    {{ paymentForm.errors.selected_term_id }}
+                  </div>
                 </div>
 
                 <!-- Payment Date -->
@@ -585,20 +604,18 @@ const submitPayment = () => {
                   </div>
                 </div>
 
-                <!-- Payment Term -->
+                <!-- Payment Notes (Optional) -->
                 <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Payment Term</label>
-                  <select
+                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Payment Notes
+                    <span class="text-xs text-gray-500">(Optional)</span>
+                  </label>
+                  <textarea
                     v-model="paymentForm.description"
-                    required
-                    :disabled="remainingBalance <= 0 || !paymentTerms || paymentTerms.length === 0"
-                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  >
-                    <option value="">-- Select a payment term --</option>
-                    <option v-for="term in paymentTerms" :key="term.id" :value="term.term_name">
-                      {{ term.term_name }} ({{ term.percentage }}%) - Balance: {{ formatCurrency(term.balance) }}
-                    </option>
-                  </select>
+                    rows="2"
+                    placeholder="Add any notes about this payment (e.g., check number, transaction ID)"
+                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  ></textarea>
                   <div v-if="paymentForm.errors.description" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.description }}
                   </div>

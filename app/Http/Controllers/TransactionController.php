@@ -220,37 +220,42 @@ class TransactionController extends Controller
 
         $data = $request->validate([
             'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|string',
-            'reference_number' => 'nullable|string',
+            'payment_method' => 'required|string|in:cash,gcash,bank_transfer,credit_card,debit_card',
             'paid_at' => 'required|date',
-            'description' => 'required|string',
+            'description' => 'required|string|max:255',
+            'selected_term_id' => 'nullable|exists:student_payment_terms,id',
         ]);
 
-        $tx = Transaction::create([
-            'user_id' => $user->id,
-            'reference' => 'PAY-' . Str::upper(Str::random(8)),
-            'kind' => 'payment',
-            'type' => 'Payment',
-            'amount' => $data['amount'],
-            'status' => 'paid',
-            'payment_channel' => $data['payment_method'],
-            'paid_at' => $data['paid_at'],
-            'meta' => [
-                'reference_number' => $data['reference_number'] ?? null,
+        try {
+            $paymentService = new \App\Services\StudentPaymentService();
+            
+            $result = $paymentService->processPayment($user, (float) $data['amount'], [
+                'payment_method' => $data['payment_method'],
+                'paid_at' => $data['paid_at'],
                 'description' => $data['description'],
-            ],
-        ]);
+                'term_name' => $data['selected_term_id'] ? 
+                    \App\Models\StudentPaymentTerm::find($data['selected_term_id'])?->term_name : null,
+            ]);
 
-        // Update account balance
-        $this->recalculateAccount($user);
+            // Trigger payment recorded event for notifications
+            event(new \App\Events\PaymentRecorded(
+                $user,
+                $result['transaction_id'],
+                (float) $data['amount'],
+                $result['transaction_reference']
+            ));
 
-        // ✅ Only check promotion if user has a student profile
-        if ($user->role->value === 'student' && $user->student) {
-            $this->checkAndPromoteStudent($user->student);
+            // ✅ Only check promotion if user has a student profile
+            if ($user->role->value === 'student' && $user->student) {
+                $this->checkAndPromoteStudent($user->student);
+            }
+
+            return redirect()->route('student.account', ['tab' => 'history'])
+                ->with('success', $result['message']);
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Payment processing failed: ' . $e->getMessage());
         }
-
-        return redirect()->route('student.account')
-            ->with('success', 'Payment recorded successfully.');
     }
 
     protected function recalculateAccount($user): void

@@ -69,6 +69,10 @@ class DatabaseSeeder extends Seeder
         $this->call(WorkflowInstanceSeeder::class);
         $this->command->newLine();
 
+        $this->command->info('💳 Step 8: Creating First Payment (Test Scenario)...');
+        $this->call(StudentFirstPaymentSeeder::class);
+        $this->command->newLine();
+
         $this->command->info('✅ Database seeding completed successfully!');
         $this->command->newLine();
         

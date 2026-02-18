@@ -14,13 +14,33 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 axios.defaults.withCredentials = true;
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
-const token = document
-    .querySelector('meta[name="csrf-token"]')
-    ?.getAttribute('content');
+// Get CSRF token from multiple potential sources
+const getCsrfToken = (): string => {
+    // Try meta tag first
+    const metaToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (metaToken) return metaToken;
+    
+    // Try from input field (fallback)
+    const inputToken = (document.querySelector('input[name="_token"]') as HTMLInputElement)?.value;
+    if (inputToken) return inputToken;
+    
+    return '';
+};
+
+const token = getCsrfToken();
 
 if (token) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = token;
 }
+
+// Ensure CSRF token is refreshed with every request
+axios.interceptors.request.use((config) => {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+        config.headers['X-CSRF-TOKEN'] = csrfToken;
+    }
+    return config;
+});
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

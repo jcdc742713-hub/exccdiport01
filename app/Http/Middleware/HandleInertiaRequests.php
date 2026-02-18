@@ -38,6 +38,9 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        // Ensure session is started to generate CSRF token
+        $token = csrf_token();
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -46,6 +49,7 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'csrf_token' => $token,
         ];
     }
 }

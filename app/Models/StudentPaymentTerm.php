@@ -19,11 +19,14 @@ class StudentPaymentTerm extends Model
         'status',
         'remarks',
         'paid_date',
+        'carryover_from_term_id',
+        'carryover_amount',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'balance' => 'decimal:2',
+        'carryover_amount' => 'decimal:2',
         'due_date' => 'date',
         'paid_date' => 'datetime',
     ];
@@ -51,6 +54,14 @@ class StudentPaymentTerm extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Source term if this carries over balance
+     */
+    public function carryoverFromTerm(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'carryover_from_term_id');
     }
 
     /**
