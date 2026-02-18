@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Policies\UserPolicy;
 use App\Policies\StudentFeePolicy;
 use App\Models\WorkflowApproval;
 use App\Policies\WorkflowApprovalPolicy;
@@ -11,7 +12,7 @@ use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvid
 class AuthServiceProvider extends ServiceProvider
 {
     protected $policies = [
-        User::class => StudentFeePolicy::class,
+        User::class => UserPolicy::class,
         WorkflowApproval::class => WorkflowApprovalPolicy::class,
     ];
 

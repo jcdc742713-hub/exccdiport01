@@ -13,6 +13,7 @@ use App\Http\Controllers\FeeController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\NotificationController;
 // NEW: Workflow Controllers
 use App\Http\Controllers\WorkflowController;
@@ -106,6 +107,11 @@ Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function
 // ============================================
 Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->group(function () {
     Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
+    
+    // Admin User Management
+    Route::resource('users', AdminController::class);
+    Route::post('users/{user}/deactivate', [AdminController::class, 'deactivate'])->name('admin.users.deactivate');
+    Route::post('users/{user}/reactivate', [AdminController::class, 'reactivate'])->name('admin.users.reactivate');
 });
 
 // ============================================
