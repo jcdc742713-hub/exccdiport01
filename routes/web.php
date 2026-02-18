@@ -163,11 +163,17 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
 });
 
 // ============================================
-// NOTIFICATION ROUTES
+// NOTIFICATION ROUTES (Admin Only)
+// ============================================
+Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
+    Route::resource('notifications', NotificationController::class);
+});
+
+// ============================================
+// NOTIFICATION ROUTES (View Only for Accounting/Admin)
 // ============================================
 Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
-    Route::post('/notifications', [NotificationController::class, 'store'])->name('notifications.store');
 });
 
 // ============================================

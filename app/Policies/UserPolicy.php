@@ -33,7 +33,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin() && $user->is_active && $user->hasPermission('manage_users');
+        return $user->isAdmin();
     }
 
     /**

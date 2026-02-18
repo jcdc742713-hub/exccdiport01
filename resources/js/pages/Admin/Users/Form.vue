@@ -31,11 +31,11 @@ const form = useForm({
 
 const submit = () => {
   if (props.isEditing) {
-    form.post(route('admin.users.update', props.admin.id), {
+    form.post(`/admin/users/${props.admin.id}`, {
       method: 'put',
     })
   } else {
-    form.post(route('admin.users.store'))
+    form.post('/admin/users')
   }
 }
 </script>

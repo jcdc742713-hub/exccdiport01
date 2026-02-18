@@ -6,7 +6,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, CreditCard, History, Users, Receipt, Banknote, GraduationCap, User } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, CreditCard, History, Users, Receipt, Banknote, GraduationCap, User, SettingsIcon, Bell } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { computed } from 'vue';
 import { StudentUser } from '@/types/user';
@@ -36,6 +36,12 @@ const allNavItems: NavItem[] = [
         roles: ['student'], // Only students
     },
     {
+        title: 'Admin Dashboard',
+        href: route('admin.dashboard'),
+        icon: LayoutGrid,
+        roles: ['admin'], // Only admin
+    },
+    {
         title: 'Accounting Dashboard',
         href: route('accounting.dashboard'),
         icon: Banknote,
@@ -52,6 +58,18 @@ const allNavItems: NavItem[] = [
         href: route('subjects.index'),
         icon: BookOpen,
         roles: ['accounting', 'admin'],
+    },
+    {
+        title: 'Admin Users',
+        href: '/admin/users',
+        icon: Users,
+        roles: ['admin'], // Only admin
+    },
+    {
+        title: 'Notifications',
+        href: '/notifications',
+        icon: Bell,
+        roles: ['admin'], // Only admin can manage
     },
     {
         title: 'User Management',

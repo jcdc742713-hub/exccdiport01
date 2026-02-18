@@ -13,11 +13,11 @@ defineProps<Props>()
 const breadcrumbItems: BreadcrumbItem[] = [
   {
     title: 'Admin Management',
-    href: route('admin.users.index'),
+    href: '/admin/users',
   },
   {
     title: `${props.admin.last_name}, ${props.admin.first_name}`,
-    href: route('admin.users.show', props.admin.id),
+    href: `/admin/users/${props.admin.id}`,
   },
 ]
 
@@ -60,7 +60,7 @@ const statusBadgeClass = (status: boolean) => {
               <p class="text-gray-600 mt-2">{{ admin.email }}</p>
             </div>
             <div class="flex space-x-2">
-              <Link :href="route('admin.users.edit', admin.id)">
+              <Link :href="`/admin/users/${admin.id}/edit`">
                 <Button>Edit</Button>
               </Link>
               <Button
@@ -174,16 +174,16 @@ const statusBadgeClass = (status: boolean) => {
   </AppLayout>
 </template>
 
-<script>
+<script lang="ts">
 export default {
   methods: {
     deactivate() {
       if (confirm('Are you sure you want to deactivate this admin?')) {
-        this.$inertia.post(route('admin.users.deactivate', this.admin.id))
+        this.$inertia.post(`/admin/users/${this.admin.id}/deactivate`)
       }
     },
     reactivate() {
-      this.$inertia.post(route('admin.users.reactivate', this.admin.id))
+      this.$inertia.post(`/admin/users/${this.admin.id}/reactivate`)
     },
   },
 }

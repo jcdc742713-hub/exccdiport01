@@ -67,7 +67,7 @@ class AdminController extends Controller
                 $request->user()
             );
 
-            return redirect()->route('admin.users.show', $admin)
+            return redirect("/admin/users/{$admin->id}")
                 ->with('success', 'Admin user created successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors());
@@ -129,7 +129,7 @@ class AdminController extends Controller
                 $request->user()
             );
 
-            return redirect()->route('admin.users.show', $user)
+            return redirect("/admin/users/{$user->id}")
                 ->with('success', 'Admin updated successfully!');
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors());

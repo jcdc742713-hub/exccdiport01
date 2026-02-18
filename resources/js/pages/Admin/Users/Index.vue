@@ -14,7 +14,7 @@ defineProps<Props>()
 const breadcrumbItems: BreadcrumbItem[] = [
   {
     title: 'Admin Management',
-    href: route('admin.users.index'),
+    href: '/admin/users',
   },
 ]
 
@@ -53,7 +53,7 @@ const getAdminTypeLabel = (type: string) => {
             <h1 class="text-3xl font-bold text-gray-900">Admin Users</h1>
             <p class="mt-2 text-gray-600">Manage administrator accounts and permissions</p>
           </div>
-          <Link :href="route('admin.users.create')">
+          <Link :href="'/admin/users/create'">
             <Button>+ Create Admin</Button>
           </Link>
         </div>
@@ -119,7 +119,7 @@ const getAdminTypeLabel = (type: string) => {
                     <span v-else class="text-red-600 text-sm">✗ Pending</span>
                   </td>
                   <td class="px-6 py-4 whitespace-nowrap">
-                    <Link :href="route('admin.users.show', admin.id)">
+                    <Link :href="`/admin/users/${admin.id}`">
                       <Button variant="ghost" size="sm">View</Button>
                     </Link>
                   </td>

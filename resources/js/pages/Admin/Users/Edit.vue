@@ -14,11 +14,11 @@ defineProps<Props>()
 const breadcrumbItems: BreadcrumbItem[] = [
   {
     title: 'Admin Management',
-    href: route('admin.users.index'),
+    href: '/admin/users',
   },
   {
     title: 'Edit Admin',
-    href: route('admin.users.index'),
+    href: '/admin/users',
   },
 ]
 </script>
