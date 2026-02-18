@@ -101,6 +101,14 @@ class Student extends Model
     }
 
     /**
+     * Student has many assessments
+     */
+    public function assessments(): HasMany
+    {
+        return $this->hasMany(StudentAssessment::class, 'user_id', 'user_id');
+    }
+
+    /**
      * Student can have accounting transactions
      * (invoices, payments, refunds linked to this student)
      */

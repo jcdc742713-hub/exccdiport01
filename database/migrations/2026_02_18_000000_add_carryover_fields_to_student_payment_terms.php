@@ -15,17 +15,18 @@ return new class extends Migration
             // Add carryover tracking columns if they don't exist
             if (!Schema::hasColumn('student_payment_terms', 'carryover_from_term_id')) {
                 $table->unsignedBigInteger('carryover_from_term_id')->nullable()->after('status');
-            }
-            if (!Schema::hasColumn('student_payment_terms', 'carryover_amount')) {
                 $table->decimal('carryover_amount', 10, 2)->default(0)->after('carryover_from_term_id');
-            }
-
-            // Add foreign key for carryover
-            if (!Schema::hasColumn('student_payment_terms', 'carryover_from_term_id')) {
+                
+                // Add foreign key for carryover
                 $table->foreign('carryover_from_term_id')
                     ->references('id')
                     ->on('student_payment_terms')
                     ->nullOnDelete();
+            } else {
+                // Columns exist, just add carryover_amount if it doesn't
+                if (!Schema::hasColumn('student_payment_terms', 'carryover_amount')) {
+                    $table->decimal('carryover_amount', 10, 2)->default(0)->after('carryover_from_term_id');
+                }
             }
         });
     }

@@ -17,8 +17,8 @@ use App\Enums\UserRoleEnum;
 /**
  * StudentFirstPaymentSeeder
  *
- * Creates a realistic payment scenario where a student makes their first payment
- * for the current semester, paying only the first term (Upon Registration).
+ * Creates a test student with unpaid payment terms ready for manual payment testing.
+ * All payment terms remain UNPAID so students can test the payment flow from the UI.
  *
  * USAGE:
  * ------
@@ -31,18 +31,23 @@ use App\Enums\UserRoleEnum;
  * STUDENT DETAILS:
  * ----------------
  * Email: jcdc742713@gmail.com
+ * Password: password
  * If not found, a test student will be created.
  *
  * EXPECTED OUTCOME:
  * -----------------
- * ✅ One payment transaction recorded
- * ✅ First payment term marked as paid (balance = 0, status = paid)
- * ✅ Remaining payment terms remain unpaid
- * ✅ Student account balance decreases by first term amount
- * ✅ One transaction entry in ledger
- * ✅ Payment confirmation notification triggered (queued)
- * ✅ All operations wrapped in DB transaction for atomicity
- * ✅ No duplicate records if student already has payments
+ * ✅ One test student account created
+ * ✅ One student assessment generated ($15,540 total)
+ * ✅ Five unpaid payment terms with standard percentages:
+ *    - Upon Registration (42.15%)
+ *    - Prelim (17.86%)
+ *    - Midterm (17.86%)
+ *    - Semi-Final (14.88%)
+ *    - Final (7.26%)
+ * ✅ All terms remain PENDING status (ready for student to pay)
+ * ✅ Carryover system enabled (excess payment carries to next term)
+ * ✅ Student can now make selective term payments via UI
+ * ✅ No auto-generated transactions
  */
 class StudentFirstPaymentSeeder extends Seeder
 {
@@ -67,12 +72,21 @@ class StudentFirstPaymentSeeder extends Seeder
             $assessment = $this->getCurrentSemesterAssessment($student);
 
             if (!$assessment) {
-                $this->command->error('No assessment found for current semester');
+                $this->command->error('No assessment found and could not create one');
                 return;
             }
 
-            $this->command->info("✓ Assessment found: {$assessment->assessment_number} (Total: " .
-                number_format($assessment->total_assessment, 2) . ")");
+            // Check if assessment was just created (by looking at created_at timestamp)
+            $isNewlyCreated = $assessment->created_at->diffInSeconds(now()) < 5;
+
+            if ($isNewlyCreated) {
+                $this->command->info("✓ Assessment CREATED: {$assessment->assessment_number} (Total: " .
+                    number_format($assessment->total_assessment, 2) . ")");
+                $this->command->info("  └─ Generated 5 payment terms with standard percentages");
+            } else {
+                $this->command->info("✓ Assessment found: {$assessment->assessment_number} (Total: " .
+                    number_format($assessment->total_assessment, 2) . ")");
+            }
 
             // ============================================
             // 3. GET FIRST PAYMENT TERM
@@ -90,114 +104,38 @@ class StudentFirstPaymentSeeder extends Seeder
                 number_format($firstTerm->amount, 2));
 
             // ============================================
-            // 4. VERIFY NO EXISTING PAYMENTS
+            // 4. VERIFY ALL PAYMENT TERMS ARE UNPAID
             // ============================================
-            $existingPayments = Transaction::where('user_id', $student->user_id)
-                ->where('kind', 'payment')
-                ->where('status', 'paid')
-                ->exists();
-
-            if ($existingPayments) {
-                $this->command->warn('⚠ Student already has payments. Skipping to avoid duplicates.');
-                return;
-            }
-
-            // ============================================
-            // 5. CREATE PAYMENT TRANSACTION
-            // ============================================
-            $paymentAmount = (float) $firstTerm->amount;
-            $paymentReference = 'FIRST-PAY-' . strtoupper(uniqid());
-            $paymentDate = Carbon::now();
-
-            $transaction = Transaction::create([
-                'user_id' => $student->user_id,
-                'account_id' => $student->user->account?->id,
-                'reference' => $paymentReference,
-                'payment_channel' => 'cash',
-                'kind' => 'payment',
-                'type' => 'regular_payment',
-                'amount' => $paymentAmount,
-                'status' => 'paid',
-                'paid_at' => $paymentDate,
-                'meta' => [
-                    'term_id' => $firstTerm->id,
-                    'term_name' => $firstTerm->term_name,
-                    'assessment_id' => $assessment->id,
-                    'payment_method' => 'seeder',
-                    'description' => 'First payment - Upon Registration term',
-                    'student_id' => $student->id,
-                ],
-            ]);
-
-            $this->command->info("✓ Transaction created: {$paymentReference} for " .
-                number_format($paymentAmount, 2));
-
-            // ============================================
-            // 6. UPDATE FIRST PAYMENT TERM
-            // ============================================
-            $firstTerm->update([
-                'status' => StudentPaymentTerm::STATUS_PAID,
-                'balance' => 0,
-                'paid_date' => $paymentDate,
-            ]);
-
-            $this->command->info("✓ First term marked as PAID (balance set to 0)");
-
-            // ============================================
-            // 7. UPDATE STUDENT ACCOUNT BALANCE
-            // ============================================
-            $student->update([
-                'total_balance' => max(0, $student->total_balance - $paymentAmount),
-            ]);
-
-            $this->command->info("✓ Student balance updated: " .
-                number_format($student->total_balance - $paymentAmount, 2));
-
-            // ============================================
-            // 8. VERIFY REMAINING TERMS STAY UNPAID
-            // ============================================
-            $remainingTerms = StudentPaymentTerm::where('student_assessment_id', $assessment->id)
-                ->where('term_order', '>', 1)
+            $allTerms = StudentPaymentTerm::where('student_assessment_id', $assessment->id)
+                ->orderBy('term_order')
                 ->get();
 
-            foreach ($remainingTerms as $term) {
-                // Verify status hasn't changed
-                if ($term->status !== StudentPaymentTerm::STATUS_PENDING) {
-                    $this->command->warn("⚠ Term {$term->term_name} status changed to {$term->status}");
+            $unpaidCount = 0;
+            foreach ($allTerms as $term) {
+                if ($term->status === StudentPaymentTerm::STATUS_PENDING) {
+                    $unpaidCount++;
+                    $this->command->info("  • {$term->term_order}. {$term->term_name}: " .
+                        number_format($term->amount, 2) . " ({$term->percentage}%) - Status: PENDING");
                 }
             }
 
-            $unpaidCount = $remainingTerms->count();
-            $this->command->info("✓ Verified {$unpaidCount} remaining terms stay unpaid");
+            $this->command->info("✓ All {$unpaidCount} payment terms are UNPAID and ready for student payments");
 
             // ============================================
-            // 9. TRIGGER PAYMENT RECORDED EVENT
-            // ============================================
-            // This will dispatch queued listeners for notifications
-            PaymentRecorded::dispatch(
-                user: $student->user,
-                transactionId: $transaction->id,
-                amount: $paymentAmount,
-                reference: $paymentReference,
-            );
-            $this->command->info("✓ PaymentRecorded event dispatched (notifications queued)");
-
-            // ============================================
-            // 10. SUMMARY
+            // 5. STUDENT PAYMENT READY
             // ============================================
             $this->command->info("\n" . str_repeat("=", 60));
-            $this->command->info("✅ FIRST PAYMENT SEEDER COMPLETED SUCCESSFULLY");
+            $this->command->info("✅ SEEDER COMPLETED - STUDENT READY FOR TESTING");
             $this->command->info(str_repeat("=", 60));
             $this->command->info("Summary:");
             $this->command->info("  • Student: {$student->email}");
             $this->command->info("  • Assessment: {$assessment->assessment_number}");
-            $this->command->info("  • Payment Amount: " . number_format($paymentAmount, 2));
-            $this->command->info("  • Term Paid: {$firstTerm->term_name}");
-            $this->command->info("  • Reference: {$paymentReference}");
-            $this->command->info("  • Timestamp: {$paymentDate->format('Y-m-d H:i:s')}");
-            $this->command->info("  • Remaining Terms: {$unpaidCount} (unpaid)");
-            $this->command->info("  • Student New Balance: " .
-                number_format($student->total_balance - $paymentAmount, 2));
+            $this->command->info("  • Total Payable: " . number_format($assessment->total_assessment, 2));
+            $this->command->info("  • Payment Terms: 5 (all UNPAID)");
+            $this->command->info("  • Carryover System: ENABLED");
+            $this->command->info("  • Payment Method: Student can now make selective term payments");
+            $this->command->info("  • Note: When a student pays more than a term amount,");
+            $this->command->info("          excess will carry over to the next term");
             $this->command->info(str_repeat("=", 60) . "\n");
         });
     }
@@ -240,7 +178,8 @@ class StudentFirstPaymentSeeder extends Seeder
 
         // Create new user and student
         $user = User::create([
-            'name' => 'Test Student',
+            'first_name' => 'Test',
+            'last_name' => 'Student',
             'email' => $email,
             'password' => bcrypt('password'),
             'email_verified_at' => now(),
@@ -298,6 +237,82 @@ class StudentFirstPaymentSeeder extends Seeder
                 ->first();
         }
 
+        // If still no assessment, create one with payment terms
+        if (!$assessment) {
+            $assessment = $this->createAssessmentWithPaymentTerms($student, $semester, $schoolYear);
+        }
+
         return $assessment;
+    }
+
+    /**
+     * Create a new assessment with payment terms for the student
+     */
+    private function createAssessmentWithPaymentTerms(
+        Student $student,
+        string $semester,
+        string $schoolYear
+    ): StudentAssessment {
+        // Default assessment amounts
+        $tuitionFee = 12000.00;
+        $otherFees = 3540.00;
+        $totalAssessment = $tuitionFee + $otherFees;
+
+        // Create the assessment
+        $assessment = StudentAssessment::create([
+            'user_id' => $student->user_id,
+            'assessment_number' => StudentAssessment::generateAssessmentNumber(),
+            'year_level' => $student->year_level ?? '2nd Year',
+            'semester' => $semester,
+            'school_year' => $schoolYear,
+            'tuition_fee' => $tuitionFee,
+            'other_fees' => $otherFees,
+            'total_assessment' => $totalAssessment,
+            'status' => 'active',
+            'created_by' => 1, // Admin user
+        ]);
+
+        // Create payment terms for this assessment
+        $this->createPaymentTermsForAssessment($assessment);
+
+        return $assessment;
+    }
+
+    /**
+     * Create standard payment terms for an assessment
+     */
+    private function createPaymentTermsForAssessment(StudentAssessment $assessment): void
+    {
+        $baseDate = now()->startOfMonth();
+        $terms = StudentPaymentTerm::TERMS;
+
+        foreach ($terms as $termOrder => $termData) {
+            // Calculate amount based on percentage
+            $amount = round($assessment->total_assessment * ($termData['percentage'] / 100), 2);
+
+            // Calculate due date based on term order
+            $dueDate = match ($termOrder) {
+                1 => $baseDate->copy(), // Upon Registration - due immediately
+                2 => $baseDate->copy()->addWeeks(4), // Prelim - 4 weeks
+                3 => $baseDate->copy()->addWeeks(8), // Midterm - 8 weeks
+                4 => $baseDate->copy()->addWeeks(12), // Semi-Final - 12 weeks
+                5 => $baseDate->copy()->addWeeks(16), // Final - 16 weeks
+                default => $baseDate->copy()->addWeeks($termOrder),
+            };
+
+            StudentPaymentTerm::create([
+                'student_assessment_id' => $assessment->id,
+                'user_id' => $assessment->user_id,
+                'term_name' => $termData['name'],
+                'term_order' => $termOrder,
+                'percentage' => $termData['percentage'],
+                'amount' => $amount,
+                'balance' => $amount, // Initially full balance
+                'due_date' => $dueDate,
+                'status' => StudentPaymentTerm::STATUS_PENDING,
+                'remarks' => null,
+                'paid_date' => null,
+            ]);
+        }
     }
 }

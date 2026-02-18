@@ -54,7 +54,7 @@ class StudentPaymentService
             ]);
 
             // Apply payment to terms with carryover logic
-            $paymentBreakdown = $this->applyPaymentWithCarryover($assessment, $paymentAmount);
+            $paymentBreakdown = $this->applyPaymentWithCarryover($assessment, $paymentAmount, $data['selected_term_id'] ?? null);
 
             // Update account balance
             $this->updateStudentBalance($user);
@@ -73,64 +73,110 @@ class StudentPaymentService
      * Apply payment across terms with carryover logic
      * 
      * Payment prioritizes:
-     * 1. Current selected term (if specified)
-     * 2. Earlier unpaid terms with carryover
-     * 3. Remaining balance in subsequent terms
+     * 1. Selected term (if specified) - applies full payment to this term first
+     * 2. Earlier unpaid terms with carryover (if overpayment)
+     * 3. Remaining balance in subsequent terms (if still overpayment)
+     * 
+     * @param StudentAssessment $assessment
+     * @param float $paymentAmount
+     * @param int|null $selectedTermId - specific term to apply payment to
+     * @return array
      */
-    private function applyPaymentWithCarryover(StudentAssessment $assessment, float $paymentAmount): array
+    private function applyPaymentWithCarryover(StudentAssessment $assessment, float $paymentAmount, ?int $selectedTermId = null): array
     {
         $breakdown = [];
         $remainingPayment = $paymentAmount;
 
-        // Get all terms ordered by priority
-        $terms = $assessment->paymentTerms()
-            ->where('balance', '>', 0)
-            ->orderBy('term_order')
-            ->get();
+        // If specific term is selected, apply payment to that term first
+        if ($selectedTermId) {
+            $selectedTerm = $assessment->paymentTerms()
+                ->where('id', $selectedTermId)
+                ->first();
 
-        if ($terms->isEmpty()) {
+            if ($selectedTerm && $selectedTerm->balance > 0) {
+                $previousBalance = (float) $selectedTerm->balance;
+                $amountApplied = min($remainingPayment, $previousBalance);
+                $newBalance = $previousBalance - $amountApplied;
+                $newStatus = $newBalance <= 0 ? self::STATUS_PAID : self::STATUS_PARTIAL;
+
+                // Update selected term
+                $selectedTerm->update([
+                    'balance' => max(0, $newBalance),
+                    'status' => $newStatus,
+                    'paid_date' => $newStatus === self::STATUS_PAID ? now() : $selectedTerm->paid_date,
+                ]);
+
+                $breakdown[] = [
+                    'term_id' => $selectedTerm->id,
+                    'term_name' => $selectedTerm->term_name,
+                    'term_order' => $selectedTerm->term_order,
+                    'previous_balance' => $previousBalance,
+                    'amount_applied' => $amountApplied,
+                    'new_balance' => max(0, $newBalance),
+                    'status' => $newStatus,
+                    'has_carryover' => $newBalance > 0,
+                ];
+
+                $remainingPayment -= $amountApplied;
+            }
+        }
+
+        // Apply remaining payment to other unpaid terms in order (carryover)
+        if ($remainingPayment > 0) {
+            $terms = $assessment->paymentTerms()
+                ->where('balance', '>', 0)
+                ->when($selectedTermId, function ($query) use ($selectedTermId) {
+                    // Skip the selected term if already processed
+                    return $query->where('id', '!=', $selectedTermId);
+                })
+                ->orderBy('term_order')
+                ->get();
+
+            foreach ($terms as $term) {
+                if ($remainingPayment <= 0) break;
+
+                $previousBalance = (float) $term->balance;
+                $amountApplied = min($remainingPayment, $previousBalance);
+                $newBalance = $previousBalance - $amountApplied;
+                $newStatus = $newBalance <= 0 ? self::STATUS_PAID : self::STATUS_PARTIAL;
+
+                // Update term
+                $term->update([
+                    'balance' => max(0, $newBalance),
+                    'status' => $newStatus,
+                    'paid_date' => $newStatus === self::STATUS_PAID ? now() : $term->paid_date,
+                ]);
+
+                $breakdown[] = [
+                    'term_id' => $term->id,
+                    'term_name' => $term->term_name,
+                    'term_order' => $term->term_order,
+                    'previous_balance' => $previousBalance,
+                    'amount_applied' => $amountApplied,
+                    'new_balance' => max(0, $newBalance),
+                    'status' => $newStatus,
+                    'has_carryover' => $newBalance > 0,
+                ];
+
+                $remainingPayment -= $amountApplied;
+            }
+        }
+
+        // Handle overpayment (if any payment remains after all terms paid)
+        if ($remainingPayment > 0) {
+            $breakdown[] = [
+                'overpayment' => $remainingPayment,
+                'note' => 'Overpayment applied to future assessments',
+            ];
+        }
+
+        // If no breakdown (shouldn't happen), return error info
+        if (empty($breakdown)) {
             return [
                 [
                     'note' => 'No outstanding balance to apply payment to',
                     'overpayment' => $paymentAmount,
                 ]
-            ];
-        }
-
-        foreach ($terms as $term) {
-            if ($remainingPayment <= 0) break;
-
-            $previousBalance = (float) $term->balance;
-            $amountApplied = min($remainingPayment, $previousBalance);
-            $newBalance = $previousBalance - $amountApplied;
-            $newStatus = $newBalance <= 0 ? self::STATUS_PAID : self::STATUS_PARTIAL;
-
-            // Update term
-            $term->update([
-                'balance' => max(0, $newBalance),
-                'status' => $newStatus,
-                'paid_date' => $newStatus === self::STATUS_PAID ? now() : $term->paid_date,
-            ]);
-
-            $breakdown[] = [
-                'term_id' => $term->id,
-                'term_name' => $term->term_name,
-                'term_order' => $term->term_order,
-                'previous_balance' => $previousBalance,
-                'amount_applied' => $amountApplied,
-                'new_balance' => max(0, $newBalance),
-                'status' => $newStatus,
-                'has_carryover' => $newBalance > 0,
-            ];
-
-            $remainingPayment -= $amountApplied;
-        }
-
-        // Handle overpayment
-        if ($remainingPayment > 0) {
-            $breakdown[] = [
-                'overpayment' => $remainingPayment,
-                'note' => 'Overpayment applied to future assessments',
             ];
         }
 

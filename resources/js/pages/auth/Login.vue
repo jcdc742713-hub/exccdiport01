@@ -9,6 +9,7 @@ import AuthBase from '@/layouts/AuthLayout.vue';
 import { register } from '@/routes';
 import { request } from '@/routes/password';
 import { Head, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import {
     LoaderCircle,
     User,
@@ -27,6 +28,7 @@ defineProps<{
 
 const selectedRole = ref<'admin' | 'accounting' | 'student' | null>(null);
 const showPassword = ref(false);
+const isSubmitting = ref(false);
 
 const form = useForm({
     email: '',
@@ -76,15 +78,48 @@ const backToRoleSelection = () => {
     form.reset('password');
 };
 
-const submit = () => {
-    // Ensure CSRF token is in the form
+const submit = async () => {
+    // Get CSRF token and add it to the form
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     
-    form.post('/login', {
-        preserveScroll: true,
-        headers: csrfToken ? { 'X-CSRF-TOKEN': csrfToken } : {},
-        onFinish: () => form.reset('password'),
-    });
+    if (!csrfToken) {
+        console.error('CSRF token not found in meta tag');
+        return;
+    }
+    
+    isSubmitting.value = true;
+    
+    try {
+        // Submit form via axios with explicit CSRF token header
+        const response = await axios.post('/login', {
+            email: form.email,
+            password: form.password,
+            remember: form.remember ? 1 : 0,
+            role: form.role,
+            _token: csrfToken, // Include token as POST parameter
+        }, {
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+            },
+        });
+        
+        // On success, reload the page or redirect
+        window.location.href = '/dashboard';
+    } catch (error: any) {
+        console.error('Login error:', error);
+        
+        // Handle validation errors or other errors
+        if (error.response?.status === 422) {
+            form.errors = error.response.data.errors || {};
+        } else if (error.response?.status === 419) {
+            console.error('CSRF token validation failed');
+            // Reload to get a fresh token
+            window.location.reload();
+        }
+    } finally {
+        isSubmitting.value = false;
+    }
 };
 
 const togglePasswordVisibility = () => {
@@ -224,10 +259,10 @@ const togglePasswordVisibility = () => {
                         type="submit"
                         class="mt-4 w-full"
                         :class="currentRole?.color"
-                        :disabled="form.processing"
+                        :disabled="isSubmitting"
                     >
                         <LoaderCircle
-                            v-if="form.processing"
+                            v-if="isSubmitting"
                             class="h-4 w-4 animate-spin mr-2"
                         />
                         Log in

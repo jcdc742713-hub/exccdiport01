@@ -50,10 +50,15 @@ createInertiaApp({
             import.meta.glob<DefineComponent>('./pages/**/*.vue')
         ),
     setup({ el, App, props, plugin }) {
-        createApp({ render: () => h(App, props) })
+        // Explicitly set axios as the HTTP client for Inertia
+        const app = createApp({ render: () => h(App, props) })
             .use(plugin)
-            .use(ZiggyVue)
-            .mount(el);
+            .use(ZiggyVue);
+        
+        // Make axios available to the Inertia app via a provide
+        app.provide('$http', axios);
+        
+        app.mount(el);
     },
     progress: {
         color: '#4B5563',

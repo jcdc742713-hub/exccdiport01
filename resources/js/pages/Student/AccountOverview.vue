@@ -131,7 +131,6 @@ const paymentForm = useForm({
   amount: 0,
   payment_method: 'cash',
   paid_at: new Date().toISOString().split('T')[0],
-  description: '',
   selected_term_id: null as number | null,
 })
 
@@ -164,10 +163,18 @@ const totalPaid = computed(() => {
     .reduce((sum, t) => sum + Number(t.amount), 0)
 })
 
-// Robust calculation: compute from transactions regardless of backend sign convention
+// Calculate remaining balance from PAYMENT TERMS (not transactions)
+// Payment terms are the source of truth for student balances
 const remainingBalance = computed(() => {
-  const txs = props.transactions ?? []
+  // If we have payment terms, calculate from them (most accurate)
+  if (props.paymentTerms && props.paymentTerms.length > 0) {
+    const outstandingBalance = props.paymentTerms
+      .reduce((sum, term) => sum + Number(term.balance || 0), 0)
+    return Math.max(0, Math.round(outstandingBalance * 100) / 100)
+  }
 
+  // Fallback to transaction-based calculation if no payment terms
+  const txs = props.transactions ?? []
   const charges = txs
     .filter(t => t.kind === 'charge')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0)
@@ -224,10 +231,21 @@ const pendingCharges = computed(() => {
 })
 
 const canSubmitPayment = computed(() => {
-  return remainingBalance.value > 0 && paymentForm.amount > 0
+  return (
+    remainingBalance.value > 0 &&
+    paymentForm.amount > 0 &&
+    paymentForm.selected_term_id !== null &&
+    availableTermsForPayment.value.length > 0
+  )
 })
 
 const submitPayment = () => {
+  // Validate term selection
+  if (!paymentForm.selected_term_id) {
+    paymentForm.setError('selected_term_id', 'Please select a payment term')
+    return
+  }
+
   // Validate amount
   if (paymentForm.amount <= 0) {
     paymentForm.setError('amount', 'Amount must be greater than zero')
@@ -247,7 +265,6 @@ const submitPayment = () => {
       paymentForm.amount = 0
       paymentForm.payment_method = 'cash'
       paymentForm.paid_at = new Date().toISOString().split('T')[0]
-      paymentForm.description = ''
       paymentForm.selected_term_id = null
       
       // Switch to payment history tab to see the new payment
@@ -566,23 +583,25 @@ const submitPayment = () => {
                   </div>
                 </div>
 
-                <!-- Apply to Specific Term (Optional) -->
+                <!-- Select Term (Required) -->
                 <div>
                   <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Apply to Specific Term
-                    <span class="text-xs text-gray-500">(Optional)</span>
+                    Select Term
+                    <span class="text-xs text-red-500">*</span>
                   </label>
                   <select
-                    v-model="paymentForm.selected_term_id"
-                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    v-model.number="paymentForm.selected_term_id"
+                    required
+                    :disabled="remainingBalance <= 0 || availableTermsForPayment.length === 0"
+                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option :value="null">Auto-distribute across all terms</option>
+                    <option :value="null">-- Choose a payment term --</option>
                     <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id">
                       {{ term.label }}
                     </option>
                   </select>
                   <p class="text-xs text-gray-500 mt-1">
-                    Leave blank to automatically distribute payment across all outstanding terms
+                    Select which term to apply this payment to. Overpayments will carry over to the next term.
                   </p>
                   <div v-if="paymentForm.errors.selected_term_id" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.selected_term_id }}
@@ -601,23 +620,6 @@ const submitPayment = () => {
                   />
                   <div v-if="paymentForm.errors.paid_at" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.paid_at }}
-                  </div>
-                </div>
-
-                <!-- Payment Notes (Optional) -->
-                <div class="md:col-span-2">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">
-                    Payment Notes
-                    <span class="text-xs text-gray-500">(Optional)</span>
-                  </label>
-                  <textarea
-                    v-model="paymentForm.description"
-                    rows="2"
-                    placeholder="Add any notes about this payment (e.g., check number, transaction ID)"
-                    class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  ></textarea>
-                  <div v-if="paymentForm.errors.description" class="text-red-500 text-sm mt-1">
-                    {{ paymentForm.errors.description }}
                   </div>
                 </div>
 

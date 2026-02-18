@@ -222,8 +222,8 @@ class TransactionController extends Controller
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|string|in:cash,gcash,bank_transfer,credit_card,debit_card',
             'paid_at' => 'required|date',
-            'description' => 'required|string|max:255',
-            'selected_term_id' => 'nullable|exists:student_payment_terms,id',
+            'description' => 'nullable|string|max:255',
+            'selected_term_id' => 'required|exists:student_payment_terms,id',
         ]);
 
         try {
@@ -232,9 +232,9 @@ class TransactionController extends Controller
             $result = $paymentService->processPayment($user, (float) $data['amount'], [
                 'payment_method' => $data['payment_method'],
                 'paid_at' => $data['paid_at'],
-                'description' => $data['description'],
-                'term_name' => $data['selected_term_id'] ? 
-                    \App\Models\StudentPaymentTerm::find($data['selected_term_id'])?->term_name : null,
+                'description' => $data['description'] ?? null,
+                'selected_term_id' => (int) $data['selected_term_id'],
+                'term_name' => \App\Models\StudentPaymentTerm::find($data['selected_term_id'])?->term_name,
             ]);
 
             // Trigger payment recorded event for notifications
