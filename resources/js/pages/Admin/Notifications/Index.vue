@@ -14,6 +14,7 @@ interface Notification {
   target_role: string
   start_date: string
   end_date: string
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -58,6 +59,9 @@ const getRoleColor = (role: string) => {
 }
 
 const isActive = (notification: Notification) => {
+  // Check if the notification is explicitly marked as active and within date range
+  if (!notification.is_active) return false
+  
   const today = new Date()
   const startDate = new Date(notification.start_date)
   const endDate = notification.end_date ? new Date(notification.end_date) : null
@@ -73,119 +77,117 @@ const isActive = (notification: Notification) => {
   <Head title="Payment Notifications" />
 
   <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="py-12">
-      <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        <!-- Header -->
-        <div class="mb-8 flex items-center justify-between">
-          <div>
-            <h1 class="text-4xl font-bold text-gray-900 mb-2">Payment Notifications</h1>
-            <p class="text-gray-600">Create and manage payment due notifications for students</p>
-          </div>
-          <Link :href="'/notifications/create'">
-            <Button>
-              <Plus class="w-4 h-4 mr-2" />
-              Create Notification
-            </Button>
-          </Link>
+    <div class="space-y-6 max-w-7xl mx-auto p-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900 mb-2">Payment Notifications</h1>
+          <p class="text-gray-600">Create and manage payment due notifications for students</p>
         </div>
+        <Link :href="'/notifications/create'">
+          <Button>
+            <Plus class="w-4 h-4 mr-2" />
+            Create Notification
+          </Button>
+        </Link>
+      </div>
 
-        <!-- Search Bar -->
-        <div class="mb-6">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search notifications..."
-            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
+      <!-- Search Bar -->
+      <div>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search notifications..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+      </div>
 
-        <!-- Empty State -->
-        <div v-if="filteredNotifications.length === 0" class="text-center py-12">
-          <Bell class="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <h3 class="text-lg font-semibold text-gray-700 mb-2">No notifications found</h3>
-          <p class="text-gray-600 mb-4">
-            {{ searchQuery ? 'Try adjusting your search' : 'Create your first notification to get started' }}
-          </p>
-          <Link v-if="!searchQuery" :href="'/notifications/create'">
-            <Button variant="outline">
-              <Plus class="w-4 h-4 mr-2" />
-              Create First Notification
-            </Button>
-          </Link>
-        </div>
+      <!-- Empty State -->
+      <div v-if="filteredNotifications.length === 0" class="text-center py-12">
+        <Bell class="w-12 h-12 mx-auto mb-4 text-gray-300" />
+        <h3 class="text-lg font-semibold text-gray-700 mb-2">No notifications found</h3>
+        <p class="text-gray-600 mb-4">
+          {{ searchQuery ? 'Try adjusting your search' : 'Create your first notification to get started' }}
+        </p>
+        <Link v-if="!searchQuery" :href="'/notifications/create'">
+          <Button variant="outline">
+            <Plus class="w-4 h-4 mr-2" />
+            Create First Notification
+          </Button>
+        </Link>
+      </div>
 
-        <!-- Notifications List -->
-        <div v-else class="space-y-4">
-          <Card v-for="notification in filteredNotifications" :key="notification.id">
-            <CardContent class="pt-6">
-              <div class="flex items-start justify-between mb-4">
-                <div class="flex-1">
-                  <div class="flex items-center gap-3 mb-2">
-                    <h3 class="text-lg font-semibold text-gray-900">{{ notification.title }}</h3>
-                    <span v-if="isActive(notification)" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Active
-                    </span>
-                    <span v-else class="inline-flex items-center px-3 py-1 rounded-xs text-xs font-medium bg-gray-100 text-gray-800">
-                      Inactive
+      <!-- Notifications List -->
+      <div v-else class="space-y-4">
+        <Card v-for="notification in filteredNotifications" :key="notification.id">
+          <CardContent class="pt-6">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex-1">
+                <div class="flex items-center gap-3 mb-2">
+                  <h3 class="text-lg font-semibold text-gray-900">{{ notification.title }}</h3>
+                  <span v-if="isActive(notification)" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    Active
+                  </span>
+                  <span v-else class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    Inactive
+                  </span>
+                </div>
+
+                <p v-if="notification.message" class="text-gray-700 mb-3">{{ notification.message }}</p>
+
+                <div class="flex flex-wrap gap-4 text-sm text-gray-600">
+                  <div class="flex items-center gap-1">
+                    <Users class="w-4 h-4" />
+                    <span :class="['px-2 py-1 rounded-full text-xs font-medium', getRoleColor(notification.target_role)]">
+                      {{ notification.target_role.charAt(0).toUpperCase() + notification.target_role.slice(1) }}
                     </span>
                   </div>
 
-                  <p v-if="notification.message" class="text-gray-700 mb-3">{{ notification.message }}</p>
+                  <div class="flex items-center gap-1">
+                    <Calendar class="w-4 h-4" />
+                    <span>
+                      {{ new Date(notification.start_date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) }}
+                    </span>
+                  </div>
 
-                  <div class="flex flex-wrap gap-4 text-sm text-gray-600">
-                    <div class="flex items-center gap-1">
-                      <Users class="w-4 h-4" />
-                      <span :class="['px-2 py-1 rounded-full text-xs font-medium', getRoleColor(notification.target_role)]">
-                        {{ notification.target_role.charAt(0).toUpperCase() + notification.target_role.slice(1) }}
-                      </span>
-                    </div>
+                  <div v-if="notification.end_date" class="flex items-center gap-1">
+                    <Calendar class="w-4 h-4" />
+                    <span>
+                      to {{ new Date(notification.end_date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) }}
+                    </span>
+                  </div>
 
-                    <div class="flex items-center gap-1">
-                      <Calendar class="w-4 h-4" />
-                      <span>
-                        {{ new Date(notification.start_date).toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
-                        }) }}
-                      </span>
-                    </div>
-
-                    <div v-if="notification.end_date" class="flex items-center gap-1">
-                      <Calendar class="w-4 h-4" />
-                      <span>
-                        to {{ new Date(notification.end_date).toLocaleDateString('en-US', { 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
-                        }) }}
-                      </span>
-                    </div>
-
-                    <div class="flex items-center gap-1 ml-auto text-xs text-gray-500">
-                      Created {{ new Date(notification.created_at).toLocaleDateString() }}
-                    </div>
+                  <div class="flex items-center gap-1 ml-auto text-xs text-gray-500">
+                    Created {{ new Date(notification.created_at).toLocaleDateString() }}
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div class="flex justify-end gap-2 pt-4 border-t">
-                <Link :href="`/notifications/${notification.id}/edit`" as="button">
-                  <Button variant="outline" size="sm">
-                    <Edit2 class="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                </Link>
-                <button @click="deleteNotification(notification.id)">
-                  <Button variant="outline" size="sm" class="text-red-600 hover:text-red-700">
-                    <Trash2 class="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div class="flex justify-end gap-2 pt-4 border-t">
+              <Link :href="`/notifications/${notification.id}/edit`" as="button">
+                <Button variant="outline" size="sm">
+                  <Edit2 class="w-4 h-4 mr-2" />
+                  Edit
+                </Button>
+              </Link>
+              <button @click="deleteNotification(notification.id)">
+                <Button variant="outline" size="sm" class="text-red-600 hover:text-red-700">
+                  <Trash2 class="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   </AppLayout>

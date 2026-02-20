@@ -58,7 +58,7 @@ class TransactionController extends Controller
     }
     public function create()
     {
-        $users = User::select('id', 'name', 'email')->get();
+        $users = User::select('id', 'first_name', 'last_name', 'middle_initial', 'email')->get();
 
         return Inertia::render('Transactions/Create', [
             'users' => $users,

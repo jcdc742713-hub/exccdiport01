@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
-import AppSidebar from '@/components/AppSidebar.vue'
+import NotificationPreview from '@/components/NotificationPreview.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import type { BreadcrumbItem } from '@/types'
-import { ArrowLeft, Bell, ToggleRight, ToggleLeft } from 'lucide-vue-next'
+import { ArrowLeft, ToggleRight, ToggleLeft } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 
 interface Student {
@@ -101,54 +101,48 @@ const breadcrumbItems: BreadcrumbItem[] = [
 <template>
   <Head :title="isEditing ? 'Edit Notification' : 'Create Notification'" />
 
-  <div class="flex h-screen bg-gray-50">
-    <!-- Sidebar -->
-    <AppSidebar />
-
-    <!-- Main Content -->
-    <div class="flex-1 overflow-auto">
-      <AppLayout :breadcrumbs="breadcrumbItems">
-        <div class="p-8">
-          <!-- Header Section -->
-          <div class="mb-8 flex items-start justify-between">
-            <div class="flex items-center gap-4">
-              <Link :href="'/notifications'">
-                <Button variant="ghost" size="icon" class="h-10 w-10">
-                  <ArrowLeft class="w-5 h-5" />
-                </Button>
-              </Link>
-              <div>
-                <div class="flex items-center gap-3 mb-2">
-                  <div class="p-3 bg-blue-100 rounded-lg">
-                    <Bell class="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div>
-                    <h1 class="text-3xl font-bold text-gray-900">
-                      {{ isEditing ? 'Edit Notification' : 'Create Payment Notification' }}
-                    </h1>
-                    <p class="text-gray-600 text-sm mt-1">
-                      {{ isEditing ? 'Update notification details and re-activate if needed' : 'Set up a new notification for students to see on their dashboard' }}
-                    </p>
-                  </div>
-                </div>
+  <AppLayout :breadcrumbs="breadcrumbItems">
+    <div class="space-y-6 max-w-7xl mx-auto p-6">
+      <!-- Header Section -->
+      <div class="mb-8 flex items-start justify-between">
+        <div class="flex items-center gap-4">
+          <Link :href="'/notifications'">
+            <Button variant="ghost" size="icon" class="h-10 w-10">
+              <ArrowLeft class="w-5 h-5" />
+            </Button>
+          </Link>
+          <div>
+            <div class="flex items-center gap-3 mb-2">
+              <div class="p-3 bg-blue-100 rounded-lg">
+                <Bell class="w-6 h-6 text-blue-600" />
               </div>
-            </div>
-
-            <!-- Status Badge -->
-            <div v-if="isEditing" class="text-right">
-              <div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg" 
-                :class="form.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
-                <span class="text-sm font-medium">
-                  {{ form.is_active ? '✓ Active' : '○ Inactive' }}
-                </span>
+              <div>
+                <h1 class="text-3xl font-bold text-gray-900">
+                  {{ isEditing ? 'Edit Notification' : 'Create Payment Notification' }}
+                </h1>
+                <p class="text-gray-600 text-sm mt-1">
+                  {{ isEditing ? 'Update notification details and re-activate if needed' : 'Set up a new notification for students to see on their dashboard' }}
+                </p>
               </div>
             </div>
           </div>
+        </div>
 
-          <!-- Main Form Grid -->
-          <div class="grid grid-cols-3 gap-8">
-            <!-- Left Column: Form (2/3 width) -->
-            <div class="col-span-2 space-y-6">
+        <!-- Status Badge -->
+        <div v-if="isEditing" class="text-right">
+          <div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg" 
+            :class="form.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'">
+            <span class="text-sm font-medium">
+              {{ form.is_active ? '✓ Active' : '○ Inactive' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Form Grid -->
+      <div class="grid grid-cols-3 gap-8">
+        <!-- Left Column: Form (2/3 width) -->
+        <div class="col-span-2 space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle class="flex items-center gap-2">
@@ -345,32 +339,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
               </Card>
 
               <!-- Preview Card -->
-              <Card>
-                <CardHeader>
-                  <CardTitle class="text-sm">📺 Preview</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div class="border-2 border-gray-200 rounded-lg p-4 bg-gradient-to-b from-gray-50 to-white">
-                    <div class="space-y-3">
-                      <div class="flex items-center gap-2">
-                        <Bell class="w-5 h-5 text-blue-600" />
-                        <h4 class="font-semibold text-gray-900 text-sm">
-                          {{ form.title || 'Notification Title' }}
-                        </h4>
-                      </div>
-                      <p class="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                        {{ form.message || 'Your message will appear here...' }}
-                      </p>
-                      <div class="text-xs text-gray-500 space-y-1 pt-2 border-t border-gray-200">
-                        <p v-if="form.start_date"><strong>📅 From:</strong> {{ form.start_date }}</p>
-                        <p v-if="form.end_date"><strong>📅 Until:</strong> {{ form.end_date }}</p>
-                        <p v-if="selectedStudent"><strong>👤 For:</strong> {{ selectedStudent.email }}</p>
-                        <p v-else><strong>👥 For:</strong> All {{ form.target_role }}s</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <NotificationPreview
+                :title="form.title"
+                :message="form.message"
+                :start-date="form.start_date"
+                :end-date="form.end_date"
+                :target-role="form.target_role"
+                :selected-student-email="selectedStudent?.email"
+              />
 
               <!-- Tips Card -->
               <Card>
@@ -408,9 +384,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
             </Button>
           </div>
         </div>
-      </AppLayout>
-    </div>
-  </div>
+    </AppLayout>
 </template>
 
 <style scoped>

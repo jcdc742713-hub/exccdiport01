@@ -13,6 +13,7 @@ interface Notification {
   target_role: string
   start_date: string
   end_date: string
+  is_active: boolean
   created_at: string
   updated_at: string
 }
@@ -51,6 +52,9 @@ const getRoleColor = (role: string) => {
 }
 
 const isActive = () => {
+  // Check if the notification is explicitly marked as active and within date range
+  if (!props.notification.is_active) return false
+  
   const today = new Date()
   const startDate = new Date(props.notification.start_date)
   const endDate = props.notification.end_date ? new Date(props.notification.end_date) : null
@@ -91,6 +95,21 @@ const isActive = () => {
             <CardTitle>Notification Details</CardTitle>
           </CardHeader>
           <CardContent class="space-y-6">
+            <!-- Status -->
+            <div>
+              <h3 class="text-sm font-medium text-gray-700 mb-2">Status</h3>
+              <div class="flex items-center gap-3">
+                <span :class="['inline-block px-3 py-1 rounded-full text-sm font-medium', props.notification.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800']">
+                  {{ props.notification.is_active ? '✓ Enabled' : '○ Disabled' }}
+                </span>
+                <span v-if="props.notification.is_active" :class="['px-3 py-1 rounded-full text-xs font-medium', isActive() ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800']">
+                  {{ isActive() ? 'Currently Active' : 'Not Yet Active' }}
+                </span>
+              </div>
+            </div>
+
+            <hr />
+
             <!-- Message -->
             <div>
               <h3 class="text-sm font-medium text-gray-700 mb-2">Message</h3>

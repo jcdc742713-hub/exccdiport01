@@ -43,8 +43,9 @@ class NotificationController extends Controller
         
         // Get all students for the student selector
         $students = User::whereRole('student')
-            ->select('id', 'name', 'email')
-            ->orderBy('name')
+            ->select('id', 'first_name', 'last_name', 'middle_initial', 'email')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
             ->get();
         
         return Inertia::render('Admin/Notifications/Create', [
@@ -102,8 +103,9 @@ class NotificationController extends Controller
 
         // Get all students for the student selector
         $students = User::whereRole('student')
-            ->select('id', 'name', 'email')
-            ->orderBy('name')
+            ->select('id', 'first_name', 'last_name', 'middle_initial', 'email')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
             ->get();
 
         return Inertia::render('Admin/Notifications/Edit', [
