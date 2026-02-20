@@ -34,6 +34,13 @@ const breadcrumbs = [
 const formatDate = (date: string | null) => {
   return date ? new Date(date).toLocaleDateString() : '-'
 }
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+  }).format(amount)
+}
 </script>
 
 <template>
@@ -83,6 +90,7 @@ const formatDate = (date: string | null) => {
               <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Enrollment Date</th>
+              <th class="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Balance</th>
               <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Actions</th>
             </tr>
           </thead>
@@ -104,6 +112,7 @@ const formatDate = (date: string | null) => {
                 </span>
               </td>
               <td class="px-6 py-4 text-sm text-gray-700">{{ formatDate(student.enrollment_date) }}</td>
+              <td class="px-6 py-4 text-sm text-right text-gray-900">{{ formatCurrency(Math.abs(student.account?.balance ?? 0)) }}</td>
               <td class="px-6 py-4 text-sm flex gap-3">
                 <!-- View -->
                 <Link :href="`/students/${student.id}`" class="text-blue-600 hover:text-blue-800">
@@ -121,7 +130,7 @@ const formatDate = (date: string | null) => {
               </td>
             </tr>
             <tr v-if="students.data.length === 0">
-              <td colspan="6" class="px-6 py-6 text-center text-gray-500">No students found.</td>
+              <td colspan="7" class="px-6 py-6 text-center text-gray-500">No students found.</td>
             </tr>
           </tbody>
         </table>

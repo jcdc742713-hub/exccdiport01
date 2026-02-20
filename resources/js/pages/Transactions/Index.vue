@@ -189,8 +189,22 @@ const closeDetailsDialog = () => {
     selectedTransaction.value = null;
 };
 
+// Calculate overall remaining balance from account
+const overallRemainingBalance = computed(() => {
+    return Math.max(0, Math.abs(props.account?.balance || 0));
+});
+
+// Check if payment can be made
+const canMakePayment = computed(() => {
+    return overallRemainingBalance.value > 0;
+});
+
 const payNow = (transaction: Transaction) => {
-    router.visit(route('student.account'));
+    if (!canMakePayment.value) {
+        alert('No outstanding balance to pay');
+        return;
+    }
+    router.visit(route('student.account', { tab: 'payment' }));
 };
 </script>
 
@@ -333,6 +347,7 @@ const payNow = (transaction: Transaction) => {
                                     <th v-if="isStaff" class="p-3 font-medium">Student</th>
                                     <th class="p-3 font-medium">Type</th>
                                     <th class="p-3 font-medium">Category</th>
+                                    <th class="p-3 font-medium">Year & Semester</th>
                                     <th class="p-3 font-medium">Amount</th>
                                     <th class="p-3 font-medium">Status</th>
                                     <th class="p-3 font-medium">Date</th>
@@ -364,6 +379,13 @@ const payNow = (transaction: Transaction) => {
                                         </span>
                                     </td>
                                     <td class="p-3 text-sm">{{ t.type }}</td>
+                                    <td class="p-3 text-sm">
+                                        <div v-if="t.year || t.semester" class="space-y-1">
+                                            <p v-if="t.year" class="font-medium">{{ t.year }}</p>
+                                            <p v-if="t.semester" class="text-xs text-gray-600">{{ t.semester }}</p>
+                                        </div>
+                                        <span v-else class="text-gray-400">-</span>
+                                    </td>
                                     <td 
                                         class="p-3 font-semibold"
                                         :class="t.kind === 'charge' ? 'text-red-600' : 'text-green-600'"
@@ -403,7 +425,12 @@ const payNow = (transaction: Transaction) => {
                                         <button 
                                             v-if="t.status === 'pending' && t.kind === 'charge' && !isStaff"
                                             @click="payNow(t)"
-                                            class="px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+                                            :disabled="!canMakePayment"
+                                            :class="canMakePayment 
+                                                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                                                : 'bg-gray-400 text-gray-200 cursor-not-allowed'"
+                                            class="px-3 py-1 text-sm rounded-lg transition-colors"
+                                            :title="canMakePayment ? 'Make payment' : 'No outstanding balance'"
                                         >
                                             Pay Now
                                         </button>
@@ -437,6 +464,13 @@ const payNow = (transaction: Transaction) => {
                                 <div>
                                     <p class="text-sm text-gray-600">Date</p>
                                     <p class="font-medium">{{ formatDate(selectedTransaction.created_at) }}</p>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Year & Semester</p>
+                                    <p v-if="selectedTransaction.year || selectedTransaction.semester" class="font-medium">
+                                        {{ selectedTransaction.year }} {{ selectedTransaction.semester }}
+                                    </p>
+                                    <p v-else class="text-gray-400">-</p>
                                 </div>
                                 <div>
                                     <p class="text-sm text-gray-600">Transaction Type</p>
@@ -474,6 +508,15 @@ const payNow = (transaction: Transaction) => {
                                         :class="selectedTransaction.kind === 'charge' ? 'text-red-600' : 'text-green-600'"
                                     >
                                         {{ selectedTransaction.kind === 'charge' ? '+' : '-' }}₱{{ formatCurrency(selectedTransaction.amount) }}
+                                    </p>
+                                </div>
+                                <div v-if="!isStaff" class="col-span-2">
+                                    <p class="text-sm text-gray-600">Overall Remaining Balance</p>
+                                    <p 
+                                        class="text-lg font-bold"
+                                        :class="overallRemainingBalance > 0 ? 'text-red-600' : 'text-green-600'"
+                                    >
+                                        ₱{{ formatCurrency(overallRemainingBalance) }}
                                     </p>
                                 </div>
                             </div>
@@ -536,10 +579,12 @@ const payNow = (transaction: Transaction) => {
                             <Button @click="downloadPDF(`${selectedTransaction.year} ${selectedTransaction.semester}`)">{{ selectedTransaction.kind === 'payment' ? '📄 Payment Receipt' : '📄 Invoice' }}</Button>
                             <Button 
                                 v-if="selectedTransaction.status === 'pending' && selectedTransaction.kind === 'charge' && !isStaff"
+                                :disabled="!canMakePayment"
                                 variant="destructive"
                                 @click="payNow(selectedTransaction); closeDetailsDialog()"
+                                :title="canMakePayment ? 'Make payment' : 'No outstanding balance'"
                             >
-                                Pay Now
+                                {{ canMakePayment ? 'Pay Now' : 'Cannot Pay' }}
                             </Button>
                         </div>
                     </div>

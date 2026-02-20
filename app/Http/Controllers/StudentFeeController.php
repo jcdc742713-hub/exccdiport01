@@ -5,14 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Student;
 use App\Models\StudentAssessment;
+use App\Models\StudentPaymentTerm;
 use App\Models\Subject;
 use App\Models\Fee;
 use App\Models\Transaction;
 use App\Models\Payment;
+use App\Services\StudentPaymentService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -268,9 +271,10 @@ class StudentFeeController extends Controller
             ->where('role', 'student')
             ->findOrFail($userId);
 
-        // Get latest assessment
+        // Get latest assessment with payment terms
         $latestAssessment = StudentAssessment::where('user_id', $userId)
             ->where('status', 'active')
+            ->with('paymentTerms')
             ->latest()
             ->first();
 
@@ -308,65 +312,87 @@ class StudentFeeController extends Controller
 
     /**
      * Store payment for student
+     * Validates:
+     * - Amount doesn't exceed total outstanding balance
+     * - Selected term exists and is unpaid
+     * - Only first unpaid term is selected
+     * - All operations are atomic (DB transactions)
      */
     public function storePayment(Request $request, $userId)
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|min:0.01',
             'payment_method' => 'required|string|in:cash,gcash,bank_transfer,credit_card,debit_card',
-            'description' => 'nullable|string|max:255',
+            'term_id' => 'required|exists:student_payment_terms,id',
             'payment_date' => 'required|date',
         ]);
 
-        $student = User::with('student')->where('role', 'student')->findOrFail($userId);
+        $student = User::with('student', 'account')->where('role', 'student')->findOrFail($userId);
 
         // Ensure student has a student record
         if (!$student->student) {
             return back()->withErrors(['error' => 'Student record not found. Please contact administrator.']);
         }
 
-        DB::beginTransaction();
+        // Get the payment term
+        $paymentTerm = StudentPaymentTerm::findOrFail($validated['term_id']);
+
+        // Get the payment service
+        $paymentService = new StudentPaymentService();
+        $outstandingBalance = $paymentService->getTotalOutstandingBalance($student);
+
+        // Validation: Amount cannot exceed total outstanding balance (overpayment protection)
+        if ((float) $validated['amount'] > $outstandingBalance) {
+            return back()->withErrors([
+                'amount' => sprintf(
+                    'Payment amount cannot exceed outstanding balance of ₱%s',
+                    number_format($outstandingBalance, 2)
+                )
+            ]);
+        }
+
+        // Validation: Selected term must have outstanding balance
+        if ((float) $paymentTerm->balance <= 0) {
+            return back()->withErrors([
+                'term_id' => 'This payment term has already been paid. Please select another term.'
+            ]);
+        }
+
+        // Validation: Only first unpaid term can be selected (sequential enforcement)
+        $firstUnpaidTerm = StudentAssessment::where('user_id', $userId)
+            ->latest('created_at')
+            ->first()
+            ->paymentTerms()
+            ->where('balance', '>', 0)
+            ->orderBy('term_order')
+            ->first();
+
+        if ($firstUnpaidTerm && (int) $paymentTerm->id !== (int) $firstUnpaidTerm->id) {
+            return back()->withErrors([
+                'term_id' => sprintf(
+                    'You must pay %s before paying other terms. Please select that term.',
+                    $firstUnpaidTerm->term_name
+                )
+            ]);
+        }
+
         try {
-            $paymentDate = $validated['payment_date'] ?? now();
-
-            // Create payment record
-            $payment = Payment::create([
-                'student_id' => $student->student->id,
-                'amount' => $validated['amount'],
+            // Process payment using service (atomic transaction)
+            $result = $paymentService->processPayment($student, (float) $validated['amount'], [
                 'payment_method' => $validated['payment_method'],
-                'reference_number' => 'PAY-' . strtoupper(Str::random(10)),
-                'description' => $validated['description'] ?? 'Payment',
-                'status' => Payment::STATUS_COMPLETED,
-                'paid_at' => $paymentDate,
+                'paid_at' => $validated['payment_date'],
+                'description' => 'Payment recorded by accounting',
+                'selected_term_id' => (int) $validated['term_id'],
+                'term_name' => $paymentTerm->term_name,
             ]);
 
-            // Create transaction record
-            Transaction::create([
-                'user_id' => $userId,
-                'reference' => $payment->reference_number,
-                'payment_channel' => $validated['payment_method'],
-                'kind' => 'payment',
-                'type' => 'Payment',
-                'amount' => $validated['amount'],
-                'status' => 'paid',
-                'paid_at' => $paymentDate,
-                'meta' => [
-                    'payment_id' => $payment->id,
-                    'description' => $validated['description'] ?? 'Payment',
-                ],
-            ]);
-
-            // Recalculate balance
-            \App\Services\AccountService::recalculate($student);
-
-            DB::commit();
-
-            return back()->with('success', 'Payment recorded successfully!');
+            return back()->with('success', 'Payment recorded successfully! ' . $result['message']);
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Payment recording failed', [
+            Log::error('Payment recording failed', [
                 'user_id' => $userId,
+                'term_id' => $validated['term_id'],
+                'amount' => $validated['amount'],
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);

@@ -214,7 +214,7 @@ const formatCurrency = (amount: number) => {
                                     Status
                                 </th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Balance
+                                    Remaining Balance
                                 </th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Actions
@@ -248,10 +248,8 @@ const formatCurrency = (amount: number) => {
                                         {{ student.status }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium">
-                                    <span :class="(student.account?.balance ?? 0) > 0 ? 'text-red-500' : 'text-green-500'">
-                                        {{ formatCurrency(Math.abs(student.account?.balance ?? 0)) }}
-                                    </span>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
+                                    {{ formatCurrency(Math.abs(student.account?.balance ?? 0)) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">

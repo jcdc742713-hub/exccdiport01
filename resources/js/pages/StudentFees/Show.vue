@@ -21,8 +21,8 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Download } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { ArrowLeft, Plus, Download, Wallet } from 'lucide-vue-next';
+import { ref, computed, watch, onMounted } from 'vue';
 
 interface Props {
     student: any;
@@ -43,6 +43,29 @@ const remainingBalance = computed(() => {
     return Math.abs(props.student.account?.balance || 0);
 });
 
+// Get available payment terms for payment (only unpaid terms)
+const availableTermsForPayment = computed(() => {
+    const unpaidTerms = props.assessment?.paymentTerms
+        ?.filter((term: any) => term.balance > 0)
+        .sort((a: any, b: any) => a.term_order - b.term_order) || []
+    
+    // Only the first unpaid term is selectable
+    const firstUnpaidIndex = unpaidTerms.length > 0 ? 0 : -1
+    
+    return unpaidTerms.map((term: any, index: number) => ({
+        id: term.id,
+        label: term.term_name,
+        term_name: term.term_name,
+        value: term.id,
+        balance: term.balance,
+        amount: term.amount,
+        due_date: term.due_date,
+        status: term.status,
+        isSelectable: index === firstUnpaidIndex,
+        hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
+    }))
+});
+
 const breadcrumbs = [
     { title: 'Dashboard', href: route('dashboard') },
     { title: 'Student Fee Management', href: route('student-fees.index') },
@@ -53,12 +76,89 @@ const showPaymentDialog = ref(false);
 
 const paymentForm = useForm({
     amount: '',
-    payment_method: 'gcash',
-    description: '',
+    payment_method: 'cash',
+    term_id: null as string | number | null,
     payment_date: new Date().toISOString().split('T')[0],
 });
 
+// Get first unpaid term (for auto-selection)
+const firstUnpaidTerm = computed(() => {
+    return availableTermsForPayment.value.find((term: any) => term.isSelectable) || null
+});
+
+// Get selected term details
+const selectedTerm = computed(() => {
+    if (!paymentForm.term_id) return null
+    return availableTermsForPayment.value.find((term: any) => term.id === paymentForm.term_id) || null
+});
+
+// Calculate remaining balance after payment
+const projectedRemainingBalance = computed(() => {
+    const paymentAmount = parseFloat(paymentForm.amount) || 0
+    const projected = remainingBalance.value - paymentAmount
+    return Math.max(0, projected)
+});
+
+// Validate payment amount
+const paymentAmountError = computed(() => {
+    const amount = parseFloat(paymentForm.amount) || 0
+    
+    if (amount <= 0 && paymentForm.amount) {
+        return 'Amount must be greater than zero'
+    }
+    
+    if (amount > remainingBalance.value) {
+        return `Amount cannot exceed remaining balance of ${formatCurrency(remainingBalance.value)}`
+    }
+    
+    if (selectedTerm.value && amount > selectedTerm.value.balance) {
+        return `Amount cannot exceed selected term balance of ${formatCurrency(selectedTerm.value.balance)}`
+    }
+    
+    return ''
+});
+
+// Check if payment form is valid for submission
+const canSubmitPayment = computed(() => {
+    const amount = parseFloat(paymentForm.amount) || 0
+    return (
+        amount > 0 &&
+        amount <= remainingBalance.value &&
+        paymentForm.term_id !== null &&
+        !paymentForm.processing &&
+        availableTermsForPayment.value.length > 0
+    )
+});
+
+// Get status badge config
+const getTermStatusConfig = (status: string) => {
+    const configs: Record<string, { bg: string; text: string; label: string }> = {
+        'pending': { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Unpaid' },
+        'partial': { bg: 'bg-orange-100', text: 'text-orange-800', label: 'Partially Paid' },
+        'paid': { bg: 'bg-green-100', text: 'text-green-800', label: 'Paid' },
+    }
+    return configs[status] || { bg: 'bg-gray-100', text: 'text-gray-800', label: status }
+};
+
+// Auto-select first unpaid term when dialog opens
+watch(() => showPaymentDialog.value, (isOpen) => {
+    if (isOpen && firstUnpaidTerm.value && !paymentForm.term_id) {
+        paymentForm.term_id = firstUnpaidTerm.value.id
+    }
+});
+
 const submitPayment = () => {
+    // Frontend validation
+    if (!canSubmitPayment.value) {
+        if (!paymentForm.term_id) {
+            paymentForm.setError('term_id', 'Please select a payment term')
+        }
+        if (!paymentForm.amount) {
+            paymentForm.setError('amount', 'Please enter an amount')
+        }
+        return
+    }
+
     paymentForm.post(route('student-fees.payments.store', props.student.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -66,8 +166,9 @@ const submitPayment = () => {
             paymentForm.reset();
             paymentForm.clearErrors();
         },
-        onError: () => {
+        onError: (errors) => {
             // Errors will be displayed in the form
+            console.error('Payment errors:', errors);
         }
     });
 };
@@ -129,10 +230,14 @@ const formatDate = (date: string) => {
                             <DialogHeader>
                                 <DialogTitle>Record New Payment</DialogTitle>
                                 <DialogDescription>
-                                    Add a payment for {{ student.name }}
+                                    <div class="space-y-1">
+                                        <p>Add a payment for {{ student.name }}</p>
+                                        <p class="text-base font-semibold text-slate-900">Current Balance: {{ formatCurrency(remainingBalance) }}</p>
+                                    </div>
                                 </DialogDescription>
                             </DialogHeader>
                             <form @submit.prevent="submitPayment" class="space-y-4">
+                                <!-- Amount -->
                                 <div class="space-y-2">
                                     <Label for="amount">Amount *</Label>
                                     <Input
@@ -141,32 +246,34 @@ const formatDate = (date: string) => {
                                         type="number"
                                         step="0.01"
                                         min="0.01"
+                                        :max="remainingBalance"
                                         required
                                         placeholder="0.00"
+                                        :class="{
+                                            'border-red-500 focus:ring-red-500': paymentAmountError
+                                        }"
                                     />
+                                    <p v-if="paymentAmountError" class="text-sm text-red-500 font-medium">
+                                        {{ paymentAmountError }}
+                                    </p>
+                                    <p v-else class="text-xs text-gray-500">
+                                        Maximum: {{ formatCurrency(remainingBalance) }}
+                                    </p>
                                     <p v-if="paymentForm.errors.amount" class="text-sm text-red-500">
                                         {{ paymentForm.errors.amount }}
                                     </p>
                                 </div>
 
+                                <!-- Payment Method -->
                                 <div class="space-y-2">
-                                    <Label for="payment_method">Payment Method *</Label>
-                                    <select
-                                        id="payment_method"
-                                        v-model="paymentForm.payment_method"
-                                        required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    >
-                                        <option value="gcash">GCash</option>
-                                        <option value="bank_transfer">Bank Transfer</option>
-                                        <option value="credit_card">Credit Card</option>
-                                        <option value="debit_card">Debit Card</option>
-                                    </select>
-                                    <p v-if="paymentForm.errors.payment_method" class="text-sm text-red-500">
-                                        {{ paymentForm.errors.payment_method }}
-                                    </p>
+                                    <Label for="payment_method">Payment Method</Label>
+                                    <div class="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
+                                        <p class="text-gray-700 font-medium">Cash</p>
+                                        <p class="text-xs text-gray-500">On-campus, in-person payment</p>
+                                    </div>
                                 </div>
 
+                                <!-- Payment Date -->
                                 <div class="space-y-2">
                                     <Label for="payment_date">Payment Date *</Label>
                                     <Input
@@ -180,16 +287,86 @@ const formatDate = (date: string) => {
                                     </p>
                                 </div>
 
+                                <!-- Select Term (Required) -->
                                 <div class="space-y-2">
-                                    <Label for="description">Description</Label>
-                                    <Input
-                                        id="description"
-                                        v-model="paymentForm.description"
-                                        placeholder="e.g., Prelim, Midterm, Full Payment"
-                                    />
-                                    <p v-if="paymentForm.errors.description" class="text-sm text-red-500">
-                                        {{ paymentForm.errors.description }}
+                                    <Label for="term_id" class="text-sm font-medium text-gray-700">
+                                        Select Term
+                                        <span class="text-xs text-red-500">*</span>
+                                    </Label>
+                                    <select
+                                        id="term_id"
+                                        v-model.number="paymentForm.term_id"
+                                        required
+                                        :disabled="remainingBalance <= 0 || availableTermsForPayment.length === 0"
+                                        class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                    >
+                                        <option :value="null">-- Choose a payment term --</option>
+                                        <option
+                                            v-for="term in availableTermsForPayment"
+                                            :key="term.id"
+                                            :value="term.id"
+                                            :disabled="!term.isSelectable"
+                                        >
+                                            {{ term.label }} - {{ formatCurrency(term.balance) }} {{ !term.isSelectable ? '(Not yet available)' : '' }}
+                                        </option>
+                                    </select>
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        Only the first unpaid term can be selected. Overpayments will carry over to the next term.
                                     </p>
+                                    <p v-if="paymentForm.errors.term_id" class="text-red-600 text-sm mt-1">
+                                        {{ paymentForm.errors.term_id }}
+                                    </p>
+                                </div>
+
+                                <!-- Selected Term Details -->
+                                <div v-if="selectedTerm" class="space-y-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="text-xs text-gray-600 font-medium">SELECTED TERM</p>
+                                            <p class="text-sm font-semibold text-gray-900 mt-1">{{ selectedTerm.label }}</p>
+                                        </div>
+                                        <span :class="[
+                                            'text-xs px-2 py-1 rounded font-medium',
+                                            getTermStatusConfig(selectedTerm.status).bg,
+                                            getTermStatusConfig(selectedTerm.status).text
+                                        ]">
+                                            {{ getTermStatusConfig(selectedTerm.status).label }}
+                                        </span>
+                                    </div>
+                                    <div class="pt-2 border-t border-blue-200 grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <p class="text-xs text-gray-600">Current Balance</p>
+                                            <p class="font-semibold text-blue-700">{{ formatCurrency(selectedTerm.balance) }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-600">Original Amount</p>
+                                            <p class="font-semibold text-gray-700">{{ formatCurrency(selectedTerm.amount) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Preview -->
+                                <div v-if="parseFloat(paymentForm.amount) > 0" class="space-y-2 p-3 bg-green-50 rounded-lg border border-green-200">
+                                    <p class="text-xs text-gray-600 font-medium">PAYMENT PREVIEW</p>
+                                    <div class="grid grid-cols-2 gap-3 text-sm">
+                                        <div>
+                                            <p class="text-xs text-gray-600">Current Balance</p>
+                                            <p class="font-semibold text-red-600">{{ formatCurrency(remainingBalance) }}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-xs text-gray-600">Payment Amount</p>
+                                            <p class="font-semibold text-blue-600">- {{ formatCurrency(parseFloat(paymentForm.amount)) }}</p>
+                                        </div>
+                                        <div class="col-span-2 pt-2 border-t border-green-200 flex justify-between">
+                                            <span class="text-xs text-gray-600 font-medium">Balance After Payment</span>
+                                            <span :class="[
+                                                'font-bold',
+                                                projectedRemainingBalance > 0 ? 'text-red-600' : 'text-green-600'
+                                            ]">
+                                                {{ formatCurrency(projectedRemainingBalance) }}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <DialogFooter>
@@ -200,8 +377,17 @@ const formatDate = (date: string) => {
                                     >
                                         Cancel
                                     </Button>
-                                    <Button type="submit" :disabled="paymentForm.processing">
-                                        {{ paymentForm.processing ? 'Recording...' : 'Record Payment' }}
+                                    <Button 
+                                        type="submit" 
+                                        :disabled="!canSubmitPayment"
+                                        :class="{
+                                            'opacity-50 cursor-not-allowed': !canSubmitPayment
+                                        }"
+                                    >
+                                        <span v-if="paymentForm.processing">Recording...</span>
+                                        <span v-else-if="!canSubmitPayment && remainingBalance <= 0">No Balance to Pay</span>
+                                        <span v-else-if="!canSubmitPayment && availableTermsForPayment.length === 0">No Unpaid Terms</span>
+                                        <span v-else>Record Payment</span>
                                     </Button>
                                 </DialogFooter>
                             </form>
@@ -283,14 +469,28 @@ const formatDate = (date: string) => {
                                 {{ formatCurrency(assessment?.total_assessment || 0) }}
                             </span>
                         </div>
-                        <div class="flex justify-between items-center text-lg">
-                            <span class="font-medium">Current Balance</span>
-                            <span
-                                class="font-bold"
-                                :class="(student.account?.balance || 0) > 0 ? 'text-red-500' : 'text-green-500'"
-                            >
-                                {{ formatCurrency(Math.abs(student.account?.balance || 0)) }}
-                            </span>
+                        <!-- Current Balance Card (Dashboard style) -->
+                        <div :class="[
+                            'mt-4 -mx-6 -mb-6 px-6 py-4 rounded-b-lg flex items-center gap-4 border-t-2',
+                            remainingBalance > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'
+                        ]">
+                            <div :class="[
+                                'p-3 rounded-lg',
+                                remainingBalance > 0 ? 'bg-red-100' : 'bg-green-100'
+                            ]">
+                                <Wallet :size="24" :class="[
+                                    remainingBalance > 0 ? 'text-red-600' : 'text-green-600'
+                                ]" />
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm text-gray-600">Current Balance</p>
+                                <p :class="[
+                                    'text-2xl font-bold',
+                                    remainingBalance > 0 ? 'text-red-600' : 'text-green-600'
+                                ]">
+                                    {{ formatCurrency(remainingBalance) }}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
