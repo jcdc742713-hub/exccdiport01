@@ -151,7 +151,7 @@ onMounted(() => {
 
 const paymentForm = useForm({
   amount: 0,
-  payment_method: 'cash',
+  payment_method: 'gcash',
   paid_at: new Date().toISOString().split('T')[0],
   selected_term_id: null as number | null,
 })
@@ -595,7 +595,6 @@ const submitPayment = () => {
                     :disabled="remainingBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
-                    <option value="cash">Cash</option>
                     <option value="gcash">GCash</option>
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="credit_card">Credit Card</option>

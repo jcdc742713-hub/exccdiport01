@@ -11,7 +11,7 @@ const form = useForm({
   user_id: '',
   type: 'charge',
   amount: '',
-  payment_channel: '',
+  payment_channel: 'cash',
 })
 const submit = () => {
   form.post(route('transactions.store'))
@@ -67,12 +67,12 @@ const submit = () => {
         <!-- Payment Channel -->
         <div>
           <label class="block text-sm font-medium mb-1">Payment Channel</label>
-          <input
+          <select
             v-model="form.payment_channel"
-            type="text"
             class="w-full border rounded px-3 py-2"
-            placeholder="e.g. GCash, PayMaya, Cash"
-          />
+          >
+            <option value="cash">Cash</option>
+          </select>
           <div v-if="form.errors.payment_channel" class="text-red-500 text-sm">
             {{ form.errors.payment_channel }}
           </div>

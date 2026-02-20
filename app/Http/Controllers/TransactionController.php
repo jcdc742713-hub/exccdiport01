@@ -241,9 +241,18 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
+        // Students cannot use 'cash' payment method - only admin and accounting can record cash payments
+        $paymentMethodRules = 'required|string|in:';
+        if ($user->role->value === 'student') {
+            $paymentMethodRules .= 'gcash,bank_transfer,credit_card,debit_card';
+        } else {
+            // Admin and accounting can use all payment methods including cash
+            $paymentMethodRules .= 'cash,gcash,bank_transfer,credit_card,debit_card';
+        }
+
         $data = $request->validate([
             'amount' => 'required|numeric|min:0.01',
-            'payment_method' => 'required|string|in:cash,gcash,bank_transfer,credit_card,debit_card',
+            'payment_method' => $paymentMethodRules,
             'paid_at' => 'required|date',
             'description' => 'nullable|string|max:255',
             'selected_term_id' => 'required|exists:student_payment_terms,id',

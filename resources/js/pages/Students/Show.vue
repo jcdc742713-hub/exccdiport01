@@ -8,7 +8,7 @@ const { student } = defineProps<{ student: any }>()
 const payment = reactive({
   amount: '',
   description: '',
-  payment_method: 'cash',
+  payment_method: 'gcash',
   reference_number: ''
 })
 

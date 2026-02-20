@@ -13,7 +13,7 @@ const { student } = defineProps<{
 const payment = useForm({
   amount: '',
   description: '',
-  payment_method: 'cash',
+  payment_method: 'gcash',
   reference_number: '',
   status: 'completed',
   paid_at: new Date().toISOString().split('T')[0] // Default to today

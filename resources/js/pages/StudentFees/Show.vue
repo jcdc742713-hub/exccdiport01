@@ -53,7 +53,7 @@ const showPaymentDialog = ref(false);
 
 const paymentForm = useForm({
     amount: '',
-    payment_method: 'cash',
+    payment_method: 'gcash',
     description: '',
     payment_date: new Date().toISOString().split('T')[0],
 });
@@ -157,7 +157,6 @@ const formatDate = (date: string) => {
                                         required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                     >
-                                        <option value="cash">Cash</option>
                                         <option value="gcash">GCash</option>
                                         <option value="bank_transfer">Bank Transfer</option>
                                         <option value="credit_card">Credit Card</option>
