@@ -1,13 +1,7 @@
 <template>
   <div class="w-full p-6">
     <!-- Breadcrumbs -->
-    <nav class="flex items-center text-sm text-gray-500 mb-6 space-x-1">
-      <Link href="/" class="hover:text-blue-600">Dashboard</Link>
-      <span>/</span>
-      <Link href="/users" class="hover:text-blue-600">Users</Link>
-      <span>/</span>
-      <span class="text-gray-700 font-medium">Edit {{ user.name }}</span>
-    </nav>
+    <Breadcrumbs :items="breadcrumbs" />
 
     <!-- Page Heading -->
     <h1 class="text-2xl font-bold mb-6">Edit User: {{ user.name }}</h1>
@@ -44,10 +38,10 @@
       </div>
 
       <div class="flex justify-end gap-3 pt-4">
-        <button type="button" @click="goBack" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+        <button type="button" @click="$page.props.auth?.user && $router.back()" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
           Cancel
         </button>
-        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+        <button type="submit" :disabled="form.processing" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
           Update User
         </button>
       </div>
@@ -56,8 +50,8 @@
 </template>
 
 <script setup lang="ts">
-import { router, Link } from '@inertiajs/vue3'
-import { reactive } from 'vue'
+import { useForm } from '@inertiajs/vue3'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 
 const { user, userRoles } = defineProps<{
   user: any
@@ -65,7 +59,7 @@ const { user, userRoles } = defineProps<{
   message: string
 }>()
 
-const form = reactive({
+const form = useForm({
   name: user.name,
   email: user.email,
   password: '',
@@ -73,11 +67,13 @@ const form = reactive({
   role: user.role
 })
 
-function submit() {
-  router.put(`/users/${user.id}`, form)
-}
+const breadcrumbs = [
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Users', href: route('users.index') },
+  { title: `Edit ${user.name}`, href: '#' }
+]
 
-function goBack() {
-  window.history.back()
+function submit() {
+  form.put(route('users.update', user.id))
 }
 </script>

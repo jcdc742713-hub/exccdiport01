@@ -17,8 +17,8 @@ const remainingBalance = computed(() => {
 })
 
 const breadcrumbs = [
-  { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Students', href: '/students' },
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Students', href: route('students.index') },
   { title: student.name }
 ]
 </script>

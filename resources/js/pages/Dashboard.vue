@@ -1,15 +1,14 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { dashboard } from '@/routes';
-import { type BreadcrumbItem } from '@/types';
+import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import PlaceholderPattern from '../components/PlaceholderPattern.vue';
 import { computed } from 'vue'
 
-const breadcrumbs: BreadcrumbItem[] = [
+const breadcrumbs = [
     {
         title: 'Dashboard',
-        href: dashboard().url,
+        href: route('dashboard'),
     },
 ];
 
@@ -42,26 +41,12 @@ const notifications = computed(() => page.props.notifications ?? [])
 <template>
     <Head title="Dashboard" />
 
-    <AppLayout :breadcrumbs="breadcrumbs">
-        <!-- <div class="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
-            <div class="grid auto-rows-min gap-4 md:grid-cols-3">
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-                <div class="relative aspect-video overflow-hidden rounded-xl border border-sidebar-border/70 dark:border-sidebar-border">
-                    <PlaceholderPattern />
-                </div>
-            </div>
-            <div class="relative min-h-[100vh] flex-1 rounded-xl border border-sidebar-border/70 md:min-h-min dark:border-sidebar-border">
-                <PlaceholderPattern />
-            </div>
-        </div> -->
-
-        <div class="p-6 space-y-6">
-            <h1 class="text-2xl font-bold">Welcome back!</h1>
+    <AppLayout>
+        <div class="w-full p-6">
+            <Breadcrumbs :items="breadcrumbs" />
+            
+            <div class="mt-6 space-y-6">
+                <h1 class="text-2xl font-bold">Welcome back!</h1>
 
             <!-- <div v-if="notifications.length" class="bg-white shadow rounded-lg p-4">
                 <h2 class="font-semibold mb-2 text-blue-700">Upcoming Payables</h2>
@@ -87,6 +72,7 @@ const notifications = computed(() => page.props.notifications ?? [])
                     </li>
                 </ul>
                 </div>
+            </div>
         </div>
     </AppLayout>
 </template>

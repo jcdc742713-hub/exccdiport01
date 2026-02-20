@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { computed, reactive } from 'vue'
+import { Head } from '@inertiajs/vue3'
+import { computed } from 'vue'
+import { useForm } from '@inertiajs/vue3'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
 
 const { student } = defineProps<{
@@ -9,7 +10,7 @@ const { student } = defineProps<{
 }>()
 
 // Payment form state - updated to match database structure
-const payment = reactive({
+const payment = useForm({
   amount: '',
   description: '',
   payment_method: 'cash',
@@ -20,12 +21,10 @@ const payment = reactive({
 
 // Add new payment
 function addPayment(studentId: number) {
-  router.post(`/students/${studentId}/payments`, payment, {
+  payment.post(route('students.payments.store', studentId), {
     onSuccess: () => {
       // Reset form after successful submission
-      payment.amount = ''
-      payment.description = ''
-      payment.reference_number = ''
+      payment.reset()
       payment.paid_at = new Date().toISOString().split('T')[0]
     }
   })
@@ -42,8 +41,8 @@ const remainingBalance = computed(() => {
 })
 
 const breadcrumbs = [
-  { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Students', href: '/students' },
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Students', href: route('students.index') },
   { title: student.name }
 ]
 </script>
@@ -176,7 +175,8 @@ const breadcrumbs = [
           <div class="md:col-span-2">
             <button
               type="submit"
-              class="w-full px-5 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors"
+              :disabled="payment.processing"
+              class="w-full px-5 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               Record Payment
             </button>

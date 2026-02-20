@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import AdminForm from './Form.vue'
-import type { BreadcrumbItem } from '@/types'
 
 interface Props {
   admin: any
@@ -11,18 +11,12 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const breadcrumbItems: BreadcrumbItem[] = [
-  {
-    title: 'Admin',
-    href: '/admin',
-  },
-  {
-    title: 'Users',
-    href: '/admin/users',
-  },
+const breadcrumbs = [
+  { title: 'Admin', href: route('admin.dashboard') },
+  { title: 'Users', href: route('users.index') },
   {
     title: `Edit: ${props.admin.last_name}, ${props.admin.first_name}`,
-    href: `/admin/users/${props.admin.id}/edit`,
+    href: route('users.edit', props.admin.id),
   },
 ]
 </script>
@@ -30,9 +24,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
 <template>
   <Head title="Edit Admin User" />
 
-  <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="py-12">
-      <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+  <AppLayout>
+    <div class="w-full p-6">
+      <Breadcrumbs :items="breadcrumbs" />
+
+      <div class="max-w-2xl">
         <div class="bg-white overflow-hidden shadow-md rounded-lg p-6">
           <h1 class="text-2xl font-bold text-gray-900 mb-6">Edit Admin User</h1>
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import type { BreadcrumbItem } from '@/types'
-import { ArrowLeft, Edit2, Calendar, Users } from 'lucide-vue-next'
+import { ArrowLeft, Edit2, Calendar } from 'lucide-vue-next'
 
 interface Notification {
   id: number
@@ -30,15 +30,16 @@ const props = withDefaults(defineProps<Props>(), {
     target_role: 'student',
     start_date: '',
     end_date: '',
+    is_active: false,
     created_at: '',
     updated_at: '',
   }),
 })
 
-const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin', href: '/admin/dashboard' },
-  { title: 'Notifications', href: '/admin/notifications' },
-  { title: props.notification.title, href: `/admin/notifications/${props.notification.id}` },
+const breadcrumbs = [
+  { title: 'Admin', href: route('admin.dashboard') },
+  { title: 'Notifications', href: route('notifications.index') },
+  { title: props.notification.title, href: route('notifications.show', props.notification.id) },
 ]
 
 const getRoleColor = (role: string) => {
@@ -52,16 +53,15 @@ const getRoleColor = (role: string) => {
 }
 
 const isActive = () => {
-  // Check if the notification is explicitly marked as active and within date range
   if (!props.notification.is_active) return false
-  
+
   const today = new Date()
   const startDate = new Date(props.notification.start_date)
   const endDate = props.notification.end_date ? new Date(props.notification.end_date) : null
-  
+
   const isStarted = startDate <= today
   const isEnded = endDate ? endDate < today : false
-  
+
   return isStarted && !isEnded
 }
 </script>
@@ -69,12 +69,14 @@ const isActive = () => {
 <template>
   <Head title="Notification Details" />
 
-  <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="py-12">
-      <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+  <AppLayout>
+    <div class="w-full p-6">
+      <Breadcrumbs :items="breadcrumbs" />
+
+      <div class="max-w-4xl">
         <!-- Header -->
         <div class="mb-8 flex items-center gap-4">
-          <Link :href="'/admin/notifications'">
+          <Link :href="route('notifications.index')">
             <Button variant="ghost" size="icon">
               <ArrowLeft class="w-4 h-4" />
             </Button>
@@ -160,10 +162,10 @@ const isActive = () => {
 
         <!-- Actions -->
         <div class="flex justify-end gap-3">
-          <Link :href="'/admin/notifications'">
+          <Link :href="route('notifications.index')">
             <Button variant="outline">Back to Notifications</Button>
           </Link>
-          <Link :href="`/admin/notifications/${notification.id}/edit`">
+          <Link :href="route('notifications.edit', notification.id)">
             <Button>
               <Edit2 class="w-4 h-4 mr-2" />
               Edit Notification

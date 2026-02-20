@@ -2,13 +2,7 @@
   <AppLayout>
     <div class="max-w-3xl mx-auto p-6">
       <!-- Breadcrumbs -->
-      <nav class="flex items-center text-sm text-gray-500 mb-6 space-x-1">
-        <Link href="/" class="hover:text-blue-600">Dashboard</Link>
-        <span>/</span>
-        <Link href="/users" class="hover:text-blue-600">Users</Link>
-        <span>/</span>
-        <span class="text-gray-700 font-medium">{{ user.name }}</span>
-      </nav>
+      <Breadcrumbs :items="breadcrumbs" />
 
       <!-- Page Heading -->
       <h1 class="text-2xl font-semibold text-gray-800 mb-6">
@@ -46,13 +40,13 @@
       <!-- Actions -->
       <div class="flex justify-end gap-3 mt-6">
         <Link
-          :href="`/users/${user.id}/edit`"
+          :href="route('users.edit', user.id)"
           class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Edit
         </Link>
         <Link
-          href="/users"
+          :href="route('users.index')"
           class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50"
         >
           Back to Users
@@ -65,10 +59,17 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
 import { Link } from '@inertiajs/vue3'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 
 const { user } = defineProps<{
   user: any
 }>()
+
+const breadcrumbs = [
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Users', href: route('users.index') },
+  { title: user.name, href: '#' }
+]
 
 // Format role for display
 function formatRole(role: string) {

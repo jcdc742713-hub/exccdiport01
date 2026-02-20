@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import type { BreadcrumbItem } from '@/types'
 import { Trash2, Edit2, Plus, Bell, Calendar, Users } from 'lucide-vue-next'
 import { ref, computed } from 'vue'
 
@@ -27,9 +27,9 @@ const props = withDefaults(defineProps<Props>(), {
   notifications: () => [],
 })
 
-const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin', href: '/admin/dashboard' },
-  { title: 'Notifications', href: '/admin/notifications' },
+const breadcrumbs = [
+  { title: 'Admin', href: route('admin.dashboard') },
+  { title: 'Notifications', href: route('notifications.index') },
 ]
 
 const searchQuery = ref('')
@@ -44,7 +44,7 @@ const filteredNotifications = computed(() => {
 
 const deleteNotification = (id: number) => {
   if (confirm('Are you sure you want to delete this notification?')) {
-    router.delete(`/admin/notifications/${id}`)
+    router.delete(route('notifications.destroy', id))
   }
 }
 
@@ -59,16 +59,15 @@ const getRoleColor = (role: string) => {
 }
 
 const isActive = (notification: Notification) => {
-  // Check if the notification is explicitly marked as active and within date range
   if (!notification.is_active) return false
-  
+
   const today = new Date()
   const startDate = new Date(notification.start_date)
   const endDate = notification.end_date ? new Date(notification.end_date) : null
-  
+
   const isStarted = startDate <= today
   const isEnded = endDate ? endDate < today : false
-  
+
   return isStarted && !isEnded
 }
 </script>
@@ -76,15 +75,17 @@ const isActive = (notification: Notification) => {
 <template>
   <Head title="Payment Notifications" />
 
-  <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="space-y-6 max-w-7xl mx-auto p-6">
+  <AppLayout>
+    <div class="w-full p-6">
+      <Breadcrumbs :items="breadcrumbs" />
+
       <!-- Header -->
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-3xl font-bold text-gray-900 mb-2">Payment Notifications</h1>
           <p class="text-gray-600">Create and manage payment due notifications for students</p>
         </div>
-        <Link :href="'/admin/notifications/create'">
+        <Link :href="route('notifications.create')">
           <Button>
             <Plus class="w-4 h-4 mr-2" />
             Create Notification
@@ -93,7 +94,7 @@ const isActive = (notification: Notification) => {
       </div>
 
       <!-- Search Bar -->
-      <div>
+      <div class="mb-6">
         <input
           v-model="searchQuery"
           type="text"
@@ -109,7 +110,7 @@ const isActive = (notification: Notification) => {
         <p class="text-gray-600 mb-4">
           {{ searchQuery ? 'Try adjusting your search' : 'Create your first notification to get started' }}
         </p>
-        <Link v-if="!searchQuery" :href="'/admin/notifications/create'">
+        <Link v-if="!searchQuery" :href="route('notifications.create')">
           <Button variant="outline">
             <Plus class="w-4 h-4 mr-2" />
             Create First Notification
@@ -146,10 +147,10 @@ const isActive = (notification: Notification) => {
                   <div class="flex items-center gap-1">
                     <Calendar class="w-4 h-4" />
                     <span>
-                      {{ new Date(notification.start_date).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
+                      {{ new Date(notification.start_date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
                       }) }}
                     </span>
                   </div>
@@ -157,10 +158,10 @@ const isActive = (notification: Notification) => {
                   <div v-if="notification.end_date" class="flex items-center gap-1">
                     <Calendar class="w-4 h-4" />
                     <span>
-                      to {{ new Date(notification.end_date).toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'short', 
-                        day: 'numeric' 
+                      to {{ new Date(notification.end_date).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
                       }) }}
                     </span>
                   </div>
@@ -173,7 +174,7 @@ const isActive = (notification: Notification) => {
             </div>
 
             <div class="flex justify-end gap-2 pt-4 border-t">
-              <Link :href="`/admin/notifications/${notification.id}/edit`" as="button">
+              <Link :href="route('notifications.edit', notification.id)" as="button">
                 <Button variant="outline" size="sm">
                   <Edit2 class="w-4 h-4 mr-2" />
                   Edit

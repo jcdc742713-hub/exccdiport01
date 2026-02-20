@@ -104,6 +104,17 @@ const calculateTermSummary = (transactions: Transaction[]): TermSummary => {
 };
 
 // Filter transactions based on search and past semesters visibility
+// Filter to only show assessment-related charges (exclude lab fees, misc fees, etc.)
+const isAssessmentTransaction = (transaction: Transaction): boolean => {
+    const type = transaction.type?.toLowerCase() || '';
+    // Exclude individual fees like laboratory fee, lab fee, misc fees, etc.
+    const excludedTypes = ['laboratory', 'lab', 'lab fee', 'laboratory fee', 'misc', 'miscellaneous'];
+    const isExcluded = excludedTypes.some(excluded => type.includes(excluded));
+    
+    // Show payments regardless, and charges that are not excluded
+    return transaction.kind === 'payment' || !isExcluded;
+};
+
 const filteredTransactionsByTerm = computed(() => {
     if (!props.transactionsByTerm) return {};
     
@@ -114,14 +125,24 @@ const filteredTransactionsByTerm = computed(() => {
         terms = { [props.currentTerm]: terms[props.currentTerm] };
     }
 
-    if (!search.value) return terms;
-
-    const searchLower = search.value.toLowerCase();
+    // Filter transactions to only show assessment-related items
     const filtered: Record<string, Transaction[]> = {};
-
     Object.entries(terms).forEach(([term, transactions]) => {
         if (!transactions || !Array.isArray(transactions)) return;
         
+        const assessmentTransactions = transactions.filter(isAssessmentTransaction);
+        if (assessmentTransactions.length > 0) {
+            filtered[term] = assessmentTransactions;
+        }
+    });
+
+    // Apply search filter
+    if (!search.value) return filtered;
+
+    const searchLower = search.value.toLowerCase();
+    const searchFiltered: Record<string, Transaction[]> = {};
+
+    Object.entries(filtered).forEach(([term, transactions]) => {
         const matchingTransactions = transactions.filter(txn => 
             txn.reference?.toLowerCase().includes(searchLower) ||
             txn.type?.toLowerCase().includes(searchLower) ||
@@ -130,11 +151,11 @@ const filteredTransactionsByTerm = computed(() => {
         );
 
         if (matchingTransactions.length > 0) {
-            filtered[term] = matchingTransactions;
+            searchFiltered[term] = matchingTransactions;
         }
     });
 
-    return filtered;
+    return searchFiltered;
 });
 
 const formatCurrency = (amount: number) => {
@@ -177,7 +198,7 @@ const payNow = (transaction: Transaction) => {
     <Head title="Transaction History" />
 
     <AppLayout>
-        <div class="space-y-6 max-w-7xl mx-auto p-6">
+        <div class="space-y-6 w-full p-6">
             <Breadcrumbs :items="breadcrumbs" />
 
             <!-- HEADER -->
@@ -234,17 +255,17 @@ const payNow = (transaction: Transaction) => {
                     class="flex justify-between items-center p-5 cursor-pointer hover:bg-gray-50 transition-colors"
                     @click="toggle(termKey)"
                 >
-                    <div>
+                    <div class="flex-1">
                         <div class="flex items-center gap-3">
                             <h2 class="font-bold text-xl">{{ termKey }}</h2>
                             <span 
                                 v-if="termKey === currentTerm"
                                 class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800"
                             >
-                                Current
+                                Current Term
                             </span>
                         </div>
-                        <p class="text-gray-500 mt-1">{{ transactions.length }} transaction{{ transactions.length !== 1 ? 's' : '' }}</p>
+                        <p class="text-gray-500 mt-1">Academic Year & Semester | {{ transactions.length }} transaction{{ transactions.length !== 1 ? 's' : '' }}</p>
                     </div>
 
                     <!-- Summary Row -->
@@ -273,12 +294,13 @@ const payNow = (transaction: Transaction) => {
                             </p>
                         </div>
 
-                        <!-- Download PDF for this term -->
+                        <!-- Download PDF for this term (Receipt) -->
                         <button
-                            class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg border text-sm transition-colors"
+                            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors font-medium"
                             @click.stop="downloadPDF(termKey)"
+                            title="Download Receipt for this term"
                         >
-                            Download PDF
+                            📄 Receipt
                         </button>
 
                         <div>
@@ -366,14 +388,17 @@ const payNow = (transaction: Transaction) => {
                                         <button 
                                             @click="viewTransaction(t)"
                                             class="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                                            title="View transaction details"
                                         >
                                             View
                                         </button>
                                         <button 
-                                            @click="downloadPDF(termKey)"
+                                            v-if="t.kind === 'payment'"
+                                            @click="viewTransaction(t)"
                                             class="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                                            title="Download receipt for this payment"
                                         >
-                                            Download
+                                            📄 Receipt
                                         </button>
                                         <button 
                                             v-if="t.status === 'pending' && t.kind === 'charge' && !isStaff"
@@ -508,9 +533,7 @@ const payNow = (transaction: Transaction) => {
                             <Button variant="outline" @click="closeDetailsDialog">
                                 Close
                             </Button>
-                            <Button @click="downloadPDF(`${selectedTransaction.year} ${selectedTransaction.semester}`)">
-                                Download PDF
-                            </Button>
+                            <Button @click="downloadPDF(`${selectedTransaction.year} ${selectedTransaction.semester}`)">{{ selectedTransaction.kind === 'payment' ? '📄 Payment Receipt' : '📄 Invoice' }}</Button>
                             <Button 
                                 v-if="selectedTransaction.status === 'pending' && selectedTransaction.kind === 'charge' && !isStaff"
                                 variant="destructive"

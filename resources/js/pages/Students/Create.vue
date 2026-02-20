@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, router } from '@inertiajs/vue3'
-import { reactive } from 'vue'
+import { Head, usePage } from '@inertiajs/vue3'
+import { useForm } from '@inertiajs/vue3'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 
-const form = reactive({
+const form = useForm({
   student_id: '',
   name: '',
   email: '',
@@ -15,8 +16,14 @@ const form = reactive({
   total_balance: ''
 })
 
+const breadcrumbs = [
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Students', href: route('students.index') },
+  { title: 'Create', href: '#' }
+]
+
 function submit() {
-  router.post('/students', form)
+  form.post(route('students.store'))
 }
 </script>
 
@@ -25,6 +32,7 @@ function submit() {
 
   <AppLayout>
     <div class="max-w-2xl mx-auto p-6">
+      <Breadcrumbs :items="breadcrumbs" />
       <h1 class="text-2xl font-semibold text-gray-800 mb-6">Add New Student</h1>
 
       <form @submit.prevent="submit" class="bg-white shadow-md rounded-xl p-6 space-y-4">
@@ -84,10 +92,10 @@ function submit() {
 
         <!-- Buttons -->
         <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="router.visit('/students')" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+          <button type="button" @click="$router.back()" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
             Cancel
           </button>
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button type="submit" :disabled="form.processing" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
             Create Student
           </button>
         </div>

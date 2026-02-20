@@ -16,9 +16,9 @@ const props = defineProps<{
 }>()
 
 const breadcrumbs = [
-  { title: 'Dashboard', href: '/' },
-  { title: 'Transactions', href: '/transactions' },
-  { title: `#${props.transaction.reference || props.transaction.id}`, href: `/transactions/${props.transaction.id}` }
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Transactions', href: route('transactions.index') },
+  { title: `#${props.transaction.reference || props.transaction.id}`, href: route('transactions.show', props.transaction.id) }
 ]
 </script>
 
@@ -41,7 +41,7 @@ const breadcrumbs = [
     </div>
 
     <div class="mt-4">
-      <Link href="/transactions" class="text-blue-600 hover:underline">← Back to Transactions</Link>
+      <Link :href="route('transactions.index')" class="text-blue-600 hover:underline">← Back to Transactions</Link>
     </div>
   </div>
 </template>

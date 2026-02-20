@@ -19,7 +19,7 @@ watch([search, statusFilter], (values) => {
   clearTimeout(timeout)
   timeout = setTimeout(() => {
     router.get(
-      '/students',
+      route('students.index'),
       { search: search.value, status: statusFilter.value },
       { preserveState: true, replace: true }
     )
@@ -27,7 +27,7 @@ watch([search, statusFilter], (values) => {
 })
 
 const breadcrumbs = [
-  { title: 'Dashboard', href: '/dashboard' },
+  { title: 'Dashboard', href: route('dashboard') },
   { title: 'Students' }
 ]
 
@@ -46,7 +46,7 @@ const formatDate = (date: string | null) => {
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
         <h1 class="text-2xl font-semibold text-gray-800">Students</h1>
         <Link
-          href="/students/create"
+          :href="route('students.create')"
           class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors mt-4 sm:mt-0"
         >
           ➕ Add Student

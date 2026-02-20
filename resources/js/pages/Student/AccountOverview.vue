@@ -3,7 +3,6 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { Head, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
-import PaymentTermsBreakdown from '@/components/PaymentTermsBreakdown.vue'
 import { useDataFormatting } from '@/composables/useDataFormatting'
 import { CreditCard, Calendar, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-vue-next'
 
@@ -197,24 +196,6 @@ const remainingBalance = computed(() => {
   return rounded > 0 ? rounded : 0
 })
 
-// Group fees by category for better display
-const feesByCategory = computed(() => {
-  const grouped = props.fees.reduce((acc, fee) => {
-    const category = fee.category || 'Other'
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category].push(fee)
-    return acc
-  }, {} as Record<string, Fee[]>)
-  
-  return Object.entries(grouped).map(([category, fees]) => ({
-    category,
-    fees,
-    total: fees.reduce((sum, f) => sum + Number(f.amount), 0)
-  }))
-})
-
 const availableTermsForPayment = computed(() => {
   const unpaidTerms = props.paymentTerms
     ?.filter(term => term.balance > 0)
@@ -263,6 +244,18 @@ const canSubmitPayment = computed(() => {
     availableTermsForPayment.value.length > 0
   )
 })
+
+const isOverdue = (dueDate: string): boolean => {
+  const due = new Date(dueDate)
+  const today = new Date()
+  
+  // Normalize to midnight for date-only comparison
+  due.setHours(0, 0, 0, 0)
+  today.setHours(0, 0, 0, 0)
+  
+  // Overdue only if 1 day or more has passed (due date is before today)
+  return due < today
+}
 
 const submitPayment = () => {
   // Validate term selection
@@ -450,41 +443,6 @@ const submitPayment = () => {
               </div>
             </div>
 
-            <!-- Payment Terms Breakdown -->
-            <div v-if="paymentTerms.length > 0" class="mb-8">
-              <PaymentTermsBreakdown :terms="paymentTerms" :total-assessment="totalAssessmentFee" />
-            </div>
-
-            <!-- Fees by Category -->
-            <div v-if="feesByCategory.length" class="space-y-6">
-              <div v-for="categoryGroup in feesByCategory" :key="categoryGroup.category" class="space-y-2">
-                <h3 class="font-semibold text-gray-700 uppercase text-sm border-b pb-2">
-                  {{ categoryGroup.category }}
-                </h3>
-                <div
-                  v-for="(fee, index) in categoryGroup.fees"
-                  :key="index"
-                  class="flex justify-between py-2 pl-4"
-                >
-                  <span class="text-gray-700">{{ fee.name }}</span>
-                  <span class="font-medium">{{ formatCurrency(fee.amount) }}</span>
-                </div>
-                <div class="flex justify-between font-semibold text-sm pt-2 pl-4 border-t">
-                  <span>{{ categoryGroup.category }} Subtotal</span>
-                  <span>{{ formatCurrency(categoryGroup.total) }}</span>
-                </div>
-              </div>
-
-              <div class="flex justify-between font-bold border-t-2 pt-4 text-lg">
-                <span>TOTAL ASSESSMENT FEE</span>
-                <span class="text-blue-600">{{ formatCurrency(totalAssessmentFee) }}</span>
-              </div>
-            </div>
-
-            <p v-else class="text-gray-500 text-center py-4">
-              No fees assigned yet.
-            </p>
-
             <!-- Payment Terms Table -->
             <div v-if="paymentTerms && paymentTerms.length" class="mt-8 border-t pt-6">
               <h3 class="text-md font-semibold mb-4 text-gray-800 flex items-center gap-2">
@@ -510,11 +468,18 @@ const submitPayment = () => {
                       <td class="py-3 px-4 text-right font-medium" :class="term.balance > 0 ? 'text-red-600' : 'text-green-600'">
                         {{ formatCurrency(term.balance) }}
                       </td>
-                      <td class="py-3 px-4 text-right text-gray-700">{{ term.due_date ? formatDate(term.due_date) : '-' }}</td>
+                      <td class="py-3 px-4 text-right">
+                        <p class="text-sm text-gray-700">{{ term.due_date ? formatDate(term.due_date) : '-' }}</p>
+                        <p v-if="term.due_date && isOverdue(term.due_date) && term.status !== 'paid'" class="text-xs text-red-600 mt-1">
+                          ⚠️ Overdue
+                        </p>
+                      </td>
                       <td class="py-3 px-4 text-center">
-                        <span class="text-xs px-2 py-1 rounded font-medium" :class="{
-                          ...getPaymentTermStatusConfig(term.status)
-                        }">
+                        <span :class="[
+                          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
+                          getPaymentTermStatusConfig(term.status).bgClass,
+                          getPaymentTermStatusConfig(term.status).textClass
+                        ]">
                           {{ getPaymentTermStatusConfig(term.status).label }}
                         </span>
                       </td>
@@ -525,7 +490,7 @@ const submitPayment = () => {
                           </button>
                           <button 
                             v-if="term.balance > 0"
-                            @click="activeTab = 'payment'"
+                            @click="() => { paymentForm.selected_term_id = term.id; activeTab = 'payment' }"
                             class="text-xs px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
                             title="Make payment"
                           >

@@ -26,9 +26,13 @@ const props = defineProps<{
                 <svg v-if="index > 0" class="w-3 h-3 text-gray-400 mx-1" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 6 10">
                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 9 4-4-4-4"/>
                 </svg>
-                <Link 
-                    v-if="item.href" 
-                    :href="item.href" 
+                <!-- Last item = current page, always render as plain text (non-clickable) -->
+                <span v-if="index === items.length - 1" class="text-sm font-medium text-gray-500" aria-current="page">
+                    {{ item.title }}
+                </span>
+                <Link
+                    v-else-if="item.href"
+                    :href="item.href"
                     class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600"
                 >
                     {{ item.title }}

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import { Button } from '@/components/ui/button'
-import type { BreadcrumbItem } from '@/types'
 
 interface Props {
   admin: any
@@ -10,18 +10,12 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const breadcrumbItems: BreadcrumbItem[] = [
-  {
-    title: 'Admin',
-    href: '/admin',
-  },
-  {
-    title: 'Users',
-    href: '/admin/users',
-  },
+const breadcrumbs = [
+  { title: 'Admin', href: route('admin.dashboard') },
+  { title: 'Users', href: route('users.index') },
   {
     title: `${props.admin.last_name}, ${props.admin.first_name}`,
-    href: `/admin/users/${props.admin.id}`,
+    href: route('users.show', props.admin.id),
   },
 ]
 
@@ -49,21 +43,23 @@ const statusBadgeClass = (status: boolean) => {
 
 const deactivate = () => {
   if (confirm('Are you sure you want to deactivate this admin?')) {
-    router.post(`/admin/users/${props.admin.id}/deactivate`)
+    router.post(route('admin.users.deactivate', props.admin.id))
   }
 }
 
 const reactivate = () => {
-  router.post(`/admin/users/${props.admin.id}/reactivate`)
+  router.post(route('admin.users.reactivate', props.admin.id))
 }
 </script>
 
 <template>
   <Head :title="`Admin: ${admin.last_name}, ${admin.first_name}`" />
 
-  <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="py-12">
-      <div class="max-w-4xl mx-auto sm:px-6 lg:px-8 space-y-6">
+  <AppLayout>
+    <div class="w-full p-6">
+      <Breadcrumbs :items="breadcrumbs" />
+
+      <div class="max-w-4xl space-y-6">
         <!-- Header -->
         <div class="bg-white overflow-hidden shadow-md rounded-lg p-6">
           <div class="flex justify-between items-start">
@@ -74,7 +70,7 @@ const reactivate = () => {
               <p class="text-gray-600 mt-2">{{ admin.email }}</p>
             </div>
             <div class="flex space-x-2">
-              <Link :href="`/admin/users/${admin.id}/edit`">
+              <Link :href="route('users.edit', admin.id)">
                 <Button>Edit</Button>
               </Link>
               <Button
@@ -187,4 +183,3 @@ const reactivate = () => {
     </div>
   </AppLayout>
 </template>
-

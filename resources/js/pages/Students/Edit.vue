@@ -1,26 +1,33 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue'
-import { Head, router, Link } from '@inertiajs/vue3'
-import { reactive } from 'vue'
+import { Head } from '@inertiajs/vue3'
+import { useForm } from '@inertiajs/vue3'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 
 const { student } = defineProps<{
   student: any
 }>()
 
-const form = reactive({
+const form = useForm({
   student_id: student.student_id,
   name: student.name,
   email: student.email,
   course: student.course,
   year_level: student.year_level,
-  birthday: student.birthday ? student.birthday.split('T')[0] : '', // Format for date input
+  birthday: student.birthday ? student.birthday.split('T')[0] : '',
   phone: student.phone || '',
   address: student.address || '',
   total_balance: student.total_balance
 })
 
+const breadcrumbs = [
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Students', href: route('students.index') },
+  { title: `Edit ${student.name}`, href: '#' }
+]
+
 function submit() {
-  router.put(`/students/${student.id}`, form)
+  form.put(route('students.update', student.id))
 }
 </script>
 
@@ -30,13 +37,7 @@ function submit() {
   <AppLayout>
     <div class="max-w-3xl mx-auto p-6">
       <!-- Breadcrumbs -->
-      <nav class="flex items-center text-sm text-gray-500 mb-6 space-x-1">
-        <Link href="/" class="hover:text-blue-600">Dashboard</Link>
-        <span>/</span>
-        <Link href="/students" class="hover:text-blue-600">Students</Link>
-        <span>/</span>
-        <span class="text-gray-700 font-medium">Edit {{ student.name }}</span>
-      </nav>
+      <Breadcrumbs :items="breadcrumbs" />
 
       <!-- Page Heading -->
       <h1 class="text-2xl font-semibold text-gray-800 mb-6">
@@ -101,10 +102,10 @@ function submit() {
 
         <!-- Buttons -->
         <div class="flex justify-end gap-3 pt-4">
-          <button type="button" @click="router.visit('/students')" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
+          <button type="button" @click="$router.back()" class="px-4 py-2 text-gray-600 border rounded-lg hover:bg-gray-50">
             Cancel
           </button>
-          <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+          <button type="submit" :disabled="form.processing" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
             Update Student
           </button>
         </div>

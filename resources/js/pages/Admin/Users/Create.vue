@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
+import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import AdminForm from './Form.vue'
-import type { BreadcrumbItem } from '@/types'
 
 interface Props {
   adminTypes: Array<{ value: string; label: string }>
@@ -10,28 +10,21 @@ interface Props {
 
 defineProps<Props>()
 
-const breadcrumbItems: BreadcrumbItem[] = [
-  {
-    title: 'Admin',
-    href: '/admin',
-  },
-  {
-    title: 'Users',
-    href: '/admin/users',
-  },
-  {
-    title: 'Create New User',
-    href: '/admin/users/create',
-  },
+const breadcrumbs = [
+  { title: 'Admin', href: route('admin.dashboard') },
+  { title: 'Users', href: route('users.index') },
+  { title: 'Create New User', href: route('users.create') },
 ]
 </script>
 
 <template>
   <Head title="Create Admin User" />
 
-  <AppLayout :breadcrumbs="breadcrumbItems">
-    <div class="py-12">
-      <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
+  <AppLayout>
+    <div class="w-full p-6">
+      <Breadcrumbs :items="breadcrumbs" />
+
+      <div class="max-w-2xl">
         <div class="bg-white overflow-hidden shadow-md rounded-lg p-6">
           <h1 class="text-2xl font-bold text-gray-900 mb-6">Create New Admin User</h1>
 

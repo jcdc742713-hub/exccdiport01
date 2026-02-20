@@ -96,7 +96,7 @@ defineProps<{
   message: string
 }>()
 const breadcrumbs = [
-  { title: 'Dashboard', href: '/dashboard' },
-  { title: 'Users', href: '/users' },
+  { title: 'Dashboard', href: route('dashboard') },
+  { title: 'Users', href: route('users.index') },
 ]
 </script>
