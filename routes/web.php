@@ -47,9 +47,9 @@ Route::middleware(['auth', 'verified', 'role:student'])->prefix('student')->grou
 });
 
 // ============================================
-// STUDENT ARCHIVE ROUTES (Admin/Accounting)
+// STUDENT ARCHIVE ROUTES (Admin Only)
 // ============================================
-Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::resource('students', StudentController::class);
     Route::post('students/{student}/payments', [StudentController::class, 'storePayment'])->name('students.payments.store');
     

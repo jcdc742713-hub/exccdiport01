@@ -79,9 +79,9 @@ const allNavItems: NavItem[] = [
     },
     {
         title: 'Archives',
-        href: route('students.index'), // Make sure this route exists
-        icon: GraduationCap, // Using the graduation cap icon
-        roles: ['admin', 'accounting'], // Only for staff
+        href: route('students.index'),
+        icon: GraduationCap,
+        roles: ['admin'],
     },
     {
         title: 'My Profile',
