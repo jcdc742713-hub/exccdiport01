@@ -112,6 +112,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->group(fu
     Route::resource('users', AdminController::class);
     Route::post('users/{user}/deactivate', [AdminController::class, 'deactivate'])->name('admin.users.deactivate');
     Route::post('users/{user}/reactivate', [AdminController::class, 'reactivate'])->name('admin.users.reactivate');
+    
+    // Notification Management
+    Route::resource('notifications', NotificationController::class);
+    Route::post('notifications/{notification}/dismiss', [NotificationController::class, 'dismiss'])->name('notifications.dismiss');
 });
 
 // ============================================
@@ -160,14 +164,6 @@ Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function
 // ============================================
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::resource('users', UserController::class);
-});
-
-// ============================================
-// NOTIFICATION ROUTES (Admin Only)
-// ============================================
-Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
-    Route::resource('notifications', NotificationController::class);
-    Route::post('/notifications/{notification}/dismiss', [NotificationController::class, 'dismiss'])->name('notifications.dismiss');
 });
 
 // ============================================

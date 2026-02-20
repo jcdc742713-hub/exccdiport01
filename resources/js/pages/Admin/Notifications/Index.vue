@@ -28,8 +28,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin Dashboard', href: '/admin/dashboard' },
-  { title: 'Notifications', href: '/notifications' },
+  { title: 'Admin', href: '/admin' },
+  { title: 'Notifications', href: '/admin/notifications' },
 ]
 
 const searchQuery = ref('')
@@ -44,7 +44,7 @@ const filteredNotifications = computed(() => {
 
 const deleteNotification = (id: number) => {
   if (confirm('Are you sure you want to delete this notification?')) {
-    router.delete(`/notifications/${id}`)
+    router.delete(`/admin/notifications/${id}`)
   }
 }
 
@@ -84,7 +84,7 @@ const isActive = (notification: Notification) => {
           <h1 class="text-3xl font-bold text-gray-900 mb-2">Payment Notifications</h1>
           <p class="text-gray-600">Create and manage payment due notifications for students</p>
         </div>
-        <Link :href="'/notifications/create'">
+        <Link :href="'/admin/notifications/create'">
           <Button>
             <Plus class="w-4 h-4 mr-2" />
             Create Notification
@@ -109,7 +109,7 @@ const isActive = (notification: Notification) => {
         <p class="text-gray-600 mb-4">
           {{ searchQuery ? 'Try adjusting your search' : 'Create your first notification to get started' }}
         </p>
-        <Link v-if="!searchQuery" :href="'/notifications/create'">
+        <Link v-if="!searchQuery" :href="'/admin/notifications/create'">
           <Button variant="outline">
             <Plus class="w-4 h-4 mr-2" />
             Create First Notification
@@ -173,7 +173,7 @@ const isActive = (notification: Notification) => {
             </div>
 
             <div class="flex justify-end gap-2 pt-4 border-t">
-              <Link :href="`/notifications/${notification.id}/edit`" as="button">
+              <Link :href="`/admin/notifications/${notification.id}/edit`" as="button">
                 <Button variant="outline" size="sm">
                   <Edit2 class="w-4 h-4 mr-2" />
                   Edit

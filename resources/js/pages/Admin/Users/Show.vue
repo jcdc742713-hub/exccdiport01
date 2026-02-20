@@ -12,7 +12,11 @@ const props = defineProps<Props>()
 
 const breadcrumbItems: BreadcrumbItem[] = [
   {
-    title: 'Admin Management',
+    title: 'Admin',
+    href: '/admin',
+  },
+  {
+    title: 'Users',
     href: '/admin/users',
   },
   {

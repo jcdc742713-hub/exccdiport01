@@ -53,9 +53,9 @@ const form = useForm({
 
 const submit = () => {
   if (isEditing.value && props.notification?.id) {
-    form.put(`/notifications/${props.notification.id}`)
+    form.put(`/admin/notifications/${props.notification.id}`)
   } else {
-    form.post('/notifications')
+    form.post('/admin/notifications')
   }
 }
 
@@ -89,11 +89,11 @@ const selectedStudent = computed(() => {
 })
 
 const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin Dashboard', href: '/admin/dashboard' },
-  { title: 'Notifications', href: '/notifications' },
+  { title: 'Admin', href: '/admin' },
+  { title: 'Notifications', href: '/admin/notifications' },
   { 
-    title: isEditing.value ? 'Edit Notification' : 'Create Notification', 
-    href: '#' 
+    title: isEditing.value ? `Edit: ${props.notification?.title}` : 'Create Notification', 
+    href: isEditing.value ? `/admin/notifications/${props.notification?.id}/edit` : '/admin/notifications/create'
   },
 ]
 </script>
@@ -106,7 +106,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
       <!-- Header Section -->
       <div class="mb-8 flex items-start justify-between">
         <div class="flex items-center gap-4">
-          <Link :href="'/notifications'">
+          <Link :href="'/admin/notifications'">
             <Button variant="ghost" size="icon" class="h-10 w-10">
               <ArrowLeft class="w-5 h-5" />
             </Button>
@@ -368,7 +368,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
           <!-- Actions -->
           <div class="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-300">
-            <Link :href="route('notifications.index')">
+            <Link :href="'/admin/notifications'">
               <Button type="button" variant="outline" class="px-6">
                 Cancel
               </Button>

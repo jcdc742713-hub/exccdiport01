@@ -36,9 +36,9 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin Dashboard', href: '/admin/dashboard' },
-  { title: 'Notifications', href: '/notifications' },
-  { title: 'Notification Details', href: '#' },
+  { title: 'Admin', href: '/admin' },
+  { title: 'Notifications', href: '/admin/notifications' },
+  { title: props.notification.title, href: `/admin/notifications/${props.notification.id}` },
 ]
 
 const getRoleColor = (role: string) => {
@@ -74,7 +74,7 @@ const isActive = () => {
       <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
         <!-- Header -->
         <div class="mb-8 flex items-center gap-4">
-          <Link :href="'/notifications'">
+          <Link :href="'/admin/notifications'">
             <Button variant="ghost" size="icon">
               <ArrowLeft class="w-4 h-4" />
             </Button>
@@ -160,10 +160,10 @@ const isActive = () => {
 
         <!-- Actions -->
         <div class="flex justify-end gap-3">
-          <Link :href="'/notifications'">
+          <Link :href="'/admin/notifications'">
             <Button variant="outline">Back to Notifications</Button>
           </Link>
-          <Link :href="`/notifications/${notification.id}/edit`">
+          <Link :href="`/admin/notifications/${notification.id}/edit`">
             <Button>
               <Edit2 class="w-4 h-4 mr-2" />
               Edit Notification

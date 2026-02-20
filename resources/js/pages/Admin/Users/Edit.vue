@@ -9,16 +9,20 @@ interface Props {
   adminTypes: Array<{ value: string; label: string }>
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 const breadcrumbItems: BreadcrumbItem[] = [
   {
-    title: 'Admin Management',
+    title: 'Admin',
+    href: '/admin',
+  },
+  {
+    title: 'Users',
     href: '/admin/users',
   },
   {
-    title: 'Edit Admin',
-    href: '/admin/users',
+    title: `Edit: ${props.admin.last_name}, ${props.admin.first_name}`,
+    href: `/admin/users/${props.admin.id}/edit`,
   },
 ]
 </script>
