@@ -4,7 +4,17 @@ import { Head, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import PaymentTermsBreakdown from '@/components/PaymentTermsBreakdown.vue'
+import { useDataFormatting } from '@/composables/useDataFormatting'
 import { CreditCard, Calendar, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-vue-next'
+
+const {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  getPaymentTermStatusConfig,
+  getTransactionStatusConfig,
+  getAssessmentStatusConfig,
+} = useDataFormatting()
 
 type Fee = {
   name: string
@@ -119,11 +129,24 @@ watch(() => props.tab, (newTab) => {
   }
 })
 
-// Ensure correct tab on mount
+// Get term_id from URL to pre-select
+const getTermIdFromUrl = (): number | null => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const termId = urlParams.get('term_id')
+  return termId ? parseInt(termId, 10) : null
+}
+
+// Ensure correct tab on mount and pre-select term if provided
 onMounted(() => {
   const urlTab = getTabFromUrl()
   if (urlTab === 'payment' || urlTab === 'history') {
     activeTab.value = urlTab
+  }
+  
+  // Pre-select term if provided in URL
+  const termId = getTermIdFromUrl()
+  if (termId) {
+    paymentForm.selected_term_id = termId
   }
 })
 
@@ -133,21 +156,6 @@ const paymentForm = useForm({
   paid_at: new Date().toISOString().split('T')[0],
   selected_term_id: null as number | null,
 })
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat('en-PH', {
-    style: 'currency',
-    currency: 'PHP',
-  }).format(amount)
-}
-
-const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-}
 
 // Use latest assessment if available, otherwise calculate from fees
 const totalAssessmentFee = computed(() => {
@@ -431,11 +439,12 @@ const submitPayment = () => {
                 </div>
                 <div>
                   <span class="text-gray-600">Status:</span>
-                  <span :class="[
-                    'px-2 py-1 text-xs font-semibold rounded-full',
-                    latestAssessment.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  <span v-if="latestAssessment" :class="[
+                    'ml-2 px-2 py-1 text-xs font-semibold rounded-full inline-block',
+                    getAssessmentStatusConfig(latestAssessment.status).bgClass,
+                    getAssessmentStatusConfig(latestAssessment.status).textClass
                   ]">
-                    {{ latestAssessment.status }}
+                    {{ getAssessmentStatusConfig(latestAssessment.status).label }}
                   </span>
                 </div>
               </div>
@@ -496,7 +505,7 @@ const submitPayment = () => {
                   </thead>
                   <tbody>
                     <tr v-for="term in paymentTerms" :key="term.id" class="border-b border-gray-200 hover:bg-gray-50 transition-colors">
-                      <td class="py-3 px-4 text-gray-900">{{ term.term_name }}</td>
+                      <td class="py-3 px-4 text-gray-900">{{ term.term_name || 'N/A' }}</td>
                       <td class="py-3 px-4 text-right text-gray-700">{{ formatCurrency(term.amount) }}</td>
                       <td class="py-3 px-4 text-right font-medium" :class="term.balance > 0 ? 'text-red-600' : 'text-green-600'">
                         {{ formatCurrency(term.balance) }}
@@ -504,11 +513,9 @@ const submitPayment = () => {
                       <td class="py-3 px-4 text-right text-gray-700">{{ term.due_date ? formatDate(term.due_date) : '-' }}</td>
                       <td class="py-3 px-4 text-center">
                         <span class="text-xs px-2 py-1 rounded font-medium" :class="{
-                          'bg-green-100 text-green-800': term.status === 'paid',
-                          'bg-blue-100 text-blue-800': term.status === 'partial',
-                          'bg-yellow-100 text-yellow-800': term.status === 'pending'
+                          ...getPaymentTermStatusConfig(term.status)
                         }">
-                          {{ term.status }}
+                          {{ getPaymentTermStatusConfig(term.status).label }}
                         </span>
                       </td>
                       <td class="py-3 px-4 text-center">
@@ -551,17 +558,21 @@ const submitPayment = () => {
                     <CheckCircle :size="20" class="text-green-600" />
                   </div>
                   <div>
-                    <p class="font-medium text-gray-900">{{ payment.meta?.description || payment.type }}</p>
+                    <p class="font-medium text-gray-900">{{ payment.meta?.description || payment.type || 'Payment' }}</p>
                     <p class="text-sm text-gray-600">
-                      {{ formatDate(payment.created_at) }}
+                      {{ payment.created_at ? formatDate(payment.created_at) : '-' }}
                     </p>
-                    <p class="text-xs text-gray-500">{{ payment.reference }}</p>
+                    <p class="text-xs text-gray-500">{{ payment.reference || 'N/A' }}</p>
                   </div>
                 </div>
                 <div class="text-right">
                   <p class="text-lg font-semibold text-green-600">{{ formatCurrency(payment.amount) }}</p>
-                  <span class="text-xs px-2 py-1 bg-green-100 text-green-800 rounded">
-                    {{ payment.status }}
+                  <span :class="[
+                    'text-xs px-2 py-1 rounded inline-block font-medium',
+                    getTransactionStatusConfig(payment.status).bgClass,
+                    getTransactionStatusConfig(payment.status).textClass
+                  ]">
+                    {{ getTransactionStatusConfig(payment.status).label }}
                   </span>
                 </div>
               </div>
@@ -644,7 +655,7 @@ const submitPayment = () => {
                   >
                     <option :value="null">-- Choose a payment term --</option>
                     <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id" :disabled="!term.isSelectable">
-                      {{ term.label }} {{ !term.isSelectable ? '(Not yet available)' : '' }}
+                      {{ term.label }} - {{ formatCurrency(term.balance) }} {{ !term.isSelectable ? '(Not yet available)' : '' }}
                     </option>
                   </select>
                   <p class="text-xs text-gray-500 mt-1">
@@ -655,14 +666,7 @@ const submitPayment = () => {
                   </div>
                 </div>
 
-                <!-- Current Balance of Selected Term -->
-                <div v-if="selectedTermInfo" class="bg-blue-50 border border-blue-200 rounded-lg p-4 md:col-span-2">
-                  <p class="text-sm font-medium text-gray-700 mb-2">Current Balance ({{ selectedTermInfo.label }})</p>
-                  <p class="text-2xl font-bold text-blue-600">{{ formatCurrency(selectedTermInfo.balance) }}</p>
-                  <p class="text-xs text-gray-600 mt-2">
-                    Due: {{ formatDate(selectedTermInfo.due_date) }}
-                  </p>
-                </div>
+
 
                 <!-- Payment Date -->
                 <div>

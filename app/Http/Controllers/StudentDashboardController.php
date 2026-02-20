@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Notification;
 use App\Models\Transaction;
+use App\Models\StudentAssessment;
 
 class StudentDashboardController extends Controller
 {
@@ -20,13 +21,44 @@ class StudentDashboardController extends Controller
             $account = $user->account()->create(['balance' => 0]);
         }
 
-        // Calculate stats
-        $totalCharges = $user->transactions()->where('kind', 'charge')->sum('amount');
-        $totalPayments = $user->transactions()
-            ->where('kind', 'payment')
-            ->where('status', 'paid')
-            ->sum('amount');
-        $remainingBalance = abs($account->balance);
+        // Get latest assessment with payment terms (MOST ACCURATE DATA)
+        $latestAssessment = StudentAssessment::where('user_id', $user->id)
+            ->with('paymentTerms')
+            ->latest('created_at')
+            ->first();
+
+        // Calculate remaining balance from payment terms (if available)
+        // This is the source of truth for financial data
+        $remainingBalance = 0;
+        $paymentTerms = [];
+        
+        if ($latestAssessment) {
+            $paymentTerms = $latestAssessment->paymentTerms()
+                ->orderBy('term_order')
+                ->get();
+            
+            // Sum all remaining balances from payment terms
+            $remainingBalance = $paymentTerms->sum('balance');
+        }
+
+        // Fallback to transaction-based calculation if no payment terms
+        if (empty($paymentTerms)) {
+            $totalCharges = $user->transactions()->where('kind', 'charge')->sum('amount');
+            $totalPayments = $user->transactions()
+                ->where('kind', 'payment')
+                ->where('status', 'paid')
+                ->sum('amount');
+            $remainingBalance = max(0, $totalCharges - $totalPayments);
+        } else {
+            // Calculate totals from actual transactions for accuracy
+            $totalCharges = $user->transactions()->where('kind', 'charge')->sum('amount');
+            $totalPayments = $user->transactions()
+                ->where('kind', 'payment')
+                ->where('status', 'paid')
+                ->sum('amount');
+        }
+
+        // Pending charges count
         $pendingChargesCount = $user->transactions()
             ->where('kind', 'charge')
             ->where('status', 'pending')
@@ -57,13 +89,37 @@ class StudentDashboardController extends Controller
                 ];
             });
 
+        // Use assessment total for total_fees (matches AccountOverview logic)
+        $totalFees = $latestAssessment ? (float) $latestAssessment->total_assessment : (float) ($totalCharges ?? 0);
+
         return Inertia::render('Student/Dashboard', [
             'account' => $account,
             'notifications' => $notifications,
             'recentTransactions' => $recentTransactions,
+            'latestAssessment' => $latestAssessment ? [
+                'id' => $latestAssessment->id,
+                'assessment_number' => $latestAssessment->assessment_number,
+                'total_assessment' => (float) $latestAssessment->total_assessment,
+                'status' => $latestAssessment->status,
+                'created_at' => $latestAssessment->created_at,
+            ] : null,
+            'paymentTerms' => $paymentTerms->map(function ($term) {
+                return [
+                    'id' => $term->id,
+                    'term_name' => $term->term_name,
+                    'term_order' => $term->term_order,
+                    'percentage' => $term->percentage,
+                    'amount' => (float) $term->amount,
+                    'balance' => (float) $term->balance,
+                    'due_date' => $term->due_date,
+                    'status' => $term->status,
+                    'remarks' => $term->remarks,
+                    'paid_date' => $term->paid_date,
+                ];
+            })->toArray(),
             'stats' => [
-                'total_fees' => (float) $totalCharges,
-                'total_paid' => (float) $totalPayments,
+                'total_fees' => $totalFees,
+                'total_paid' => (float) ($totalPayments ?? 0),
                 'remaining_balance' => (float) $remainingBalance,
                 'pending_charges_count' => $pendingChargesCount,
             ],
