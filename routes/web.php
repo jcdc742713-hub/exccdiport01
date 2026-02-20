@@ -160,16 +160,9 @@ Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function
 });
 
 // ============================================
-// USER MANAGEMENT ROUTES (Admin Only)
-// ============================================
-Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
-    Route::resource('users', UserController::class);
-});
-
-// ============================================
 // NOTIFICATION ROUTES (View Only for Accounting/Admin)
 // ============================================
-Route::middleware(['auth', 'verified', 'role:admin,accounting'])->group(function () {
+Route::middleware(['auth', 'verified', 'role:admin,accounting'])->prefix('admin')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
 });
 

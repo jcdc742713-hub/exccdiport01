@@ -67,7 +67,7 @@ const allNavItems: NavItem[] = [
     },
     {
         title: 'Notifications',
-        href: '/notifications',
+        href: '/admin/notifications',
         icon: Bell,
         roles: ['admin'], // Only admin can manage
     },

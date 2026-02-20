@@ -89,11 +89,13 @@ const selectedStudent = computed(() => {
 })
 
 const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin', href: '/admin' },
+  { title: 'Admin', href: '/admin/dashboard' },
   { title: 'Notifications', href: '/admin/notifications' },
-  { 
-    title: isEditing.value ? `Edit: ${props.notification?.title}` : 'Create Notification', 
-    href: isEditing.value ? `/admin/notifications/${props.notification?.id}/edit` : '/admin/notifications/create'
+  {
+    title: isEditing.value
+      ? `Edit: ${props.notification?.title ?? 'Notification'}`
+      : 'Create Notification',
+    href: '#',
   },
 ]
 </script>

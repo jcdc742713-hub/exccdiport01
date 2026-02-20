@@ -36,7 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const breadcrumbItems: BreadcrumbItem[] = [
-  { title: 'Admin', href: '/admin' },
+  { title: 'Admin', href: '/admin/dashboard' },
   { title: 'Notifications', href: '/admin/notifications' },
   { title: props.notification.title, href: `/admin/notifications/${props.notification.id}` },
 ]

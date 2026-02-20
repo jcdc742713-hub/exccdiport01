@@ -138,7 +138,7 @@ const getColorClass = (color: string) => {
                   Add Admin User
                 </Button>
               </Link>
-              <Link :href="'/notifications'" as="button" class="w-full">
+              <Link :href="'/admin/notifications'" as="button" class="w-full">
                 <Button variant="outline" class="w-full justify-start">
                   <FileText class="w-4 h-4 mr-2" />
                   Manage Notifications
@@ -242,7 +242,7 @@ const getColorClass = (color: string) => {
               <CardTitle>Recent Notifications</CardTitle>
               <CardDescription>Latest notifications sent to users</CardDescription>
             </div>
-            <Link :href="'/notifications'">
+            <Link :href="'/admin/notifications'">
               <Button variant="outline" size="sm">View All</Button>
             </Link>
           </CardHeader>

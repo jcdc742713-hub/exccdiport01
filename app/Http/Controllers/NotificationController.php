@@ -78,7 +78,7 @@ class NotificationController extends Controller
 
         Notification::create($validated);
 
-        return redirect('/notifications')
+        return redirect('/admin/notifications')
             ->with('success', 'Notification created successfully.');
     }
 
@@ -138,7 +138,7 @@ class NotificationController extends Controller
 
         $notification->update($validated);
 
-        return redirect('/notifications')
+        return redirect('/admin/notifications')
             ->with('success', 'Notification updated successfully.');
     }
 
@@ -151,7 +151,7 @@ class NotificationController extends Controller
 
         $notification->delete();
 
-        return redirect('/notifications')
+        return redirect('/admin/notifications')
             ->with('success', 'Notification deleted successfully.');
     }
 
