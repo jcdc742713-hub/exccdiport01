@@ -11,7 +11,7 @@ class Transaction extends Model
     protected $fillable = [
         'user_id', 'account_id', 'fee_id', 'reference', 
         'payment_channel', 'kind', 'type', 'amount', 'status', 
-        'paid_at', 'meta'
+        'paid_at', 'meta', 'year', 'semester'
     ];
 
     protected $casts = [

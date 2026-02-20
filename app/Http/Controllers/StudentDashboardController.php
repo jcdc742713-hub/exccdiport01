@@ -31,7 +31,7 @@ class StudentDashboardController extends Controller
         // Calculate remaining balance from payment terms (if available)
         // This is the source of truth for financial data
         $remainingBalance = 0;
-        $paymentTerms = [];
+        $paymentTerms = collect([]);
         
         if ($latestAssessment) {
             $paymentTerms = $latestAssessment->paymentTerms()

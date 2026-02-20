@@ -21,16 +21,16 @@ class TransactionController extends Controller
         if (in_array($user->role->value, ['super_admin', 'admin', 'accounting'])) {
             $transactions = Transaction::with('user')
                 ->orderByDesc('year')
-                ->orderBy('semester')
+                ->orderByDesc('semester')
                 ->get()
-                ->groupBy(fn($txn) => "{$txn->year} {$txn->semester}");
+                ->groupBy(fn($txn) => $this->getTransactionGroupKey($txn));
         } else {
             $transactions = $user->transactions()
                 ->with('user')
                 ->orderByDesc('year')
-                ->orderBy('semester')
+                ->orderByDesc('semester')
                 ->get()
-                ->groupBy(fn($txn) => "{$txn->year} {$txn->semester}");
+                ->groupBy(fn($txn) => $this->getTransactionGroupKey($txn));
         }
 
         return Inertia::render('Transactions/Index', [
@@ -41,20 +41,43 @@ class TransactionController extends Controller
         ]);
     }
 
+    private function getTransactionGroupKey($txn): string
+    {
+        // If year and semester are present, use them
+        if (!empty($txn->year) && !empty($txn->semester)) {
+            return "{$txn->year} {$txn->semester}";
+        }
+        
+        // Fallback: use current term if year/semester are empty
+        if (empty($txn->year) && empty($txn->semester)) {
+            return $this->getCurrentTerm();
+        }
+        
+        // Partial data: return what we have
+        $label = trim("{$txn->year} {$txn->semester}");
+        return $label ?: $this->getCurrentTerm();
+    }
+
     private function getCurrentTerm(): string
     {
-        $year = now()->year;
         $month = now()->month;
+        $year = now()->year;
 
         if ($month >= 6 && $month <= 10) {
+            // 1st Semester: June–October → school year started this calendar year
+            $schoolYearStart = $year;
             $semester = '1st Sem';
-        } elseif ($month >= 11 || $month <= 3) {
+        } elseif ($month >= 11) {
+            // 2nd Semester starts November → school year started this calendar year
+            $schoolYearStart = $year;
             $semester = '2nd Sem';
         } else {
-            $semester = 'Summer';
+            // 2nd Semester continuing: Jan–May → school year started last calendar year
+            $schoolYearStart = $year - 1;
+            $semester = '2nd Sem';
         }
 
-        return "{$year} {$semester}";
+        return "{$schoolYearStart} {$semester}";
     }
     public function create()
     {

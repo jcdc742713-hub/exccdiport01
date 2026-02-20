@@ -77,7 +77,7 @@ class StudentTransactionHistorySeeder extends Seeder
         ],
         [
             'term_name' => 'Final',
-            'percentage' => 7.26,
+            'percentage' => 7.25,
             'term_order' => 5,
         ],
     ];
@@ -85,6 +85,22 @@ class StudentTransactionHistorySeeder extends Seeder
     public function run(): void
     {
         DB::transaction(function () {
+            // ============================================
+            // 0. CLEANUP EXISTING DATA
+            // ============================================
+            $existingUser = User::where('email', self::EMAIL)->first();
+            if ($existingUser) {
+                // Delete transactions
+                Transaction::where('user_id', $existingUser->id)->delete();
+
+                // Delete payment terms and assessments via user_id
+                StudentPaymentTerm::where('user_id', $existingUser->id)->delete();
+                StudentAssessment::where('user_id', $existingUser->id)->delete();
+
+                $this->command->info('✓ Cleaned up existing data for ' . self::EMAIL);
+                $this->command->newLine();
+            }
+
             // ============================================
             // 1. GET OR CREATE STUDENT
             // ============================================
