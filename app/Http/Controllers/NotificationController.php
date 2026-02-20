@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,20 +12,18 @@ class NotificationController extends Controller
     /**
      * Display all notifications (or user-specific based on role)
      */
-    public function index()
+    public function index(Request $request)
     {
         // Admin can see all notifications
         // Others see only relevant notifications
-        $user = auth()->user();
+        $user = $request->user();
         
         if ($user->isAdmin()) {
-            $notifications = Notification::orderByDesc('start_date')->get();
+            $notifications = Notification::orderByDesc('created_at')->get();
         } else {
-            $notifications = Notification::query()
-                ->where(function ($q) use ($user) {
-                    $q->where('target_role', $user->role)
-                      ->orWhere('target_role', 'all');
-                })
+            $notifications = Notification::active()
+                ->forUser($user->id)
+                ->withinDateRange()
                 ->orderByDesc('start_date')
                 ->get();
         }
@@ -42,7 +41,15 @@ class NotificationController extends Controller
     {
         $this->authorize('create', Notification::class);
         
-        return Inertia::render('Admin/Notifications/Create');
+        // Get all students for the student selector
+        $students = User::whereRole('student')
+            ->select('id', 'name', 'email')
+            ->orderBy('name')
+            ->get();
+        
+        return Inertia::render('Admin/Notifications/Create', [
+            'students' => $students,
+        ]);
     }
 
     /**
@@ -54,11 +61,19 @@ class NotificationController extends Controller
 
         $validated = $request->validate([
             'title'       => 'required|string|max:255',
-            'message'     => 'nullable|string|max:1000',
+            'message'     => 'nullable|string|max:2000',
             'start_date'  => 'required|date',
             'end_date'    => 'nullable|date|after_or_equal:start_date',
             'target_role' => 'required|string|in:student,accounting,admin,all',
+            'user_id'     => 'nullable|integer|exists:users,id',
+            'is_active'   => 'boolean',
         ]);
+
+        // If user_id is specified, it's a specific student notification
+        // Set target_role to null so it only shows to that specific user
+        if ($validated['user_id']) {
+            $validated['target_role'] = 'student'; // Still student role-based default
+        }
 
         Notification::create($validated);
 
@@ -85,8 +100,15 @@ class NotificationController extends Controller
     {
         $this->authorize('update', $notification);
 
+        // Get all students for the student selector
+        $students = User::whereRole('student')
+            ->select('id', 'name', 'email')
+            ->orderBy('name')
+            ->get();
+
         return Inertia::render('Admin/Notifications/Edit', [
             'notification' => $notification,
+            'students' => $students,
         ]);
     }
 
@@ -99,11 +121,18 @@ class NotificationController extends Controller
 
         $validated = $request->validate([
             'title'       => 'required|string|max:255',
-            'message'     => 'nullable|string|max:1000',
+            'message'     => 'nullable|string|max:2000',
             'start_date'  => 'required|date',
             'end_date'    => 'nullable|date|after_or_equal:start_date',
             'target_role' => 'required|string|in:student,accounting,admin,all',
+            'user_id'     => 'nullable|integer|exists:users,id',
+            'is_active'   => 'boolean',
         ]);
+
+        // If user_id is specified, it's a specific student notification
+        if ($validated['user_id']) {
+            $validated['target_role'] = 'student';
+        }
 
         $notification->update($validated);
 
@@ -122,5 +151,15 @@ class NotificationController extends Controller
 
         return redirect('/notifications')
             ->with('success', 'Notification deleted successfully.');
+    }
+
+    /**
+     * Mark notification as dismissed
+     */
+    public function dismiss(Notification $notification)
+    {
+        $notification->markDismissed();
+        
+        return back()->with('success', 'Notification dismissed.');
     }
 }

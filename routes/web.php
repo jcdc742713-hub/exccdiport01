@@ -167,6 +167,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
 // ============================================
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
     Route::resource('notifications', NotificationController::class);
+    Route::post('/notifications/{notification}/dismiss', [NotificationController::class, 'dismiss'])->name('notifications.dismiss');
 });
 
 // ============================================

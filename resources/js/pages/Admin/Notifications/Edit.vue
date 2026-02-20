@@ -2,6 +2,12 @@
 import { Head } from '@inertiajs/vue3'
 import Form from './Form.vue'
 
+interface Student {
+  id: number
+  name: string
+  email: string
+}
+
 interface Notification {
   id: number
   title: string
@@ -9,10 +15,13 @@ interface Notification {
   target_role: string
   start_date: string
   end_date: string
+  user_id?: number | null
+  is_active: boolean
 }
 
 interface Props {
   notification: Notification
+  students: Student[]
 }
 
 defineProps<Props>()
@@ -20,5 +29,5 @@ defineProps<Props>()
 
 <template>
   <Head title="Edit Notification" />
-  <Form :notification="notification" />
+  <Form :notification="notification" :students="students" />
 </template>

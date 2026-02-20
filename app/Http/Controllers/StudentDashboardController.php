@@ -7,6 +7,7 @@ use Inertia\Inertia;
 use App\Models\Notification;
 use App\Models\Transaction;
 use App\Models\StudentAssessment;
+use App\Models\PaymentReminder;
 
 class StudentDashboardController extends Controller
 {
@@ -64,14 +65,25 @@ class StudentDashboardController extends Controller
             ->where('status', 'pending')
             ->count();
 
-        // Get notifications
-        $notifications = Notification::where(function ($q) use ($user) {
-            $q->where('target_role', $user->role->value)
-              ->orWhere('target_role', 'all');
-        })
-        ->orderByDesc('start_date')
-        ->take(5)
-        ->get();
+        // Get active notifications (role-based and user-specific)
+        $notifications = Notification::active()
+            ->forUser($user->id)
+            ->withinDateRange()
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'title' => $notification->title,
+                    'message' => $notification->message,
+                    'start_date' => $notification->start_date,
+                    'end_date' => $notification->end_date,
+                    'target_role' => $notification->target_role,
+                    'is_active' => $notification->is_active,
+                    'is_complete' => $notification->is_complete,
+                ];
+            });
 
         // Get recent transactions
         $recentTransactions = $user->transactions()
@@ -91,6 +103,30 @@ class StudentDashboardController extends Controller
 
         // Use assessment total for total_fees (matches AccountOverview logic)
         $totalFees = $latestAssessment ? (float) $latestAssessment->total_assessment : (float) ($totalCharges ?? 0);
+
+        // Get unread payment reminders
+        $unreadReminders = PaymentReminder::where('user_id', $user->id)
+            ->where('status', '!=', PaymentReminder::STATUS_DISMISSED)
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get()
+            ->map(function ($reminder) {
+                return [
+                    'id' => $reminder->id,
+                    'type' => $reminder->type,
+                    'message' => $reminder->message,
+                    'outstanding_balance' => (float) $reminder->outstanding_balance,
+                    'status' => $reminder->status,
+                    'read_at' => $reminder->read_at,
+                    'sent_at' => $reminder->sent_at,
+                    'trigger_reason' => $reminder->trigger_reason,
+                ];
+            });
+
+        // Count unread reminders
+        $unreadReminderCount = PaymentReminder::where('user_id', $user->id)
+            ->where('status', PaymentReminder::STATUS_SENT)
+            ->count();
 
         return Inertia::render('Student/Dashboard', [
             'account' => $account,
@@ -123,6 +159,8 @@ class StudentDashboardController extends Controller
                 'remaining_balance' => (float) $remainingBalance,
                 'pending_charges_count' => $pendingChargesCount,
             ],
+            'paymentReminders' => $unreadReminders,
+            'unreadReminderCount' => $unreadReminderCount,
         ]);
     }
 }

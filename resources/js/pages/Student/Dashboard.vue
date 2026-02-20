@@ -66,12 +66,25 @@ type Assessment = {
   created_at: string
 }
 
+type PaymentReminder = {
+  id: number
+  type: string
+  message: string
+  outstanding_balance: number
+  status: string
+  read_at: string | null
+  sent_at: string
+  trigger_reason: string
+}
+
 const props = defineProps<{
   account: Account
   notifications: Notification[]
   recentTransactions: RecentTransaction[]
   paymentTerms?: PaymentTerm[]
   latestAssessment?: Assessment | null
+  paymentReminders?: PaymentReminder[]
+  unreadReminderCount?: number
   stats: {
     total_fees: number
     total_paid: number
@@ -423,17 +436,86 @@ const activeNotifications = computed(() => {
         <!-- LEFT COLUMN -->
         <div class="lg:col-span-2 space-y-6">
           <!-- Notifications -->
-          <div v-if="activeNotifications.length" class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-xl font-semibold mb-4">Important Announcements</h2>
+          <div v-if="activeNotifications.length" class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 text-white">
+            <div class="flex items-center gap-2 mb-4">
+              <Bell class="w-6 h-6 text-blue-100" />
+              <h2 class="text-2xl font-bold">Important Updates</h2>
+            </div>
 
             <div class="space-y-4">
               <div
                 v-for="notification in activeNotifications"
                 :key="notification.id"
-                class="border-l-4 border-blue-500 bg-blue-50 p-4"
+                class="border-l-4 border-yellow-300 bg-white bg-opacity-10 p-5 rounded-lg backdrop-blur-sm hover:bg-opacity-20 transition"
               >
-                <h3 class="font-semibold">{{ notification.title }}</h3>
-                <p class="text-sm mt-1">{{ notification.message }}</p>
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h3 class="font-bold text-lg text-white">{{ notification.title }}</h3>
+                    <p class="text-blue-100 mt-2 text-sm leading-relaxed">{{ notification.message }}</p>
+                    <div class="mt-3 text-xs text-blue-200 space-y-1">
+                      <p v-if="notification.start_date">📅 <strong>Active from:</strong> {{ formatDate(notification.start_date) }}</p>
+                      <p v-if="notification.end_date">📅 <strong>Until:</strong> {{ formatDate(notification.end_date) }}</p>
+                    </div>
+                  </div>
+                  <div class="ml-4 flex-shrink-0">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white text-blue-600">
+                      ✓ Active
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Payment Reminders History -->
+          <div v-if="props.paymentReminders && props.paymentReminders.length > 0" class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <h2 class="text-xl font-semibold">Payment Reminders</h2>
+                <span v-if="props.unreadReminderCount && props.unreadReminderCount > 0" class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  {{ props.unreadReminderCount }} new
+                </span>
+              </div>
+            </div>
+
+            <div class="space-y-3">
+              <div
+                v-for="reminder in props.paymentReminders"
+                :key="reminder.id"
+                :class="[
+                  'p-4 rounded-lg border-l-4',
+                  reminder.type === 'overdue' || reminder.type === 'approaching_due'
+                    ? 'bg-red-50 border-red-400'
+                    : reminder.type === 'partial_payment'
+                    ? 'bg-yellow-50 border-yellow-400'
+                    : 'bg-blue-50 border-blue-400'
+                ]"
+              >
+                <div class="flex justify-between items-start">
+                  <div class="flex-1">
+                    <h4 :class="[
+                      'font-semibold text-sm',
+                      reminder.type === 'overdue' || reminder.type === 'approaching_due'
+                        ? 'text-red-900'
+                        : reminder.type === 'partial_payment'
+                        ? 'text-yellow-900'
+                        : 'text-blue-900'
+                    ]">
+                      {{ reminder.message }}
+                    </h4>
+                    <p class="text-xs text-gray-600 mt-1">
+                      {{ formatDate(reminder.sent_at) }}
+                    </p>
+                  </div>
+                  <span :class="[
+                    'text-xs px-2 py-1 rounded font-medium whitespace-nowrap ml-2',
+                    reminder.status === 'read'
+                      ? 'bg-gray-100 text-gray-700'
+                      : 'bg-red-100 text-red-700'
+                  ]">
+                    {{ reminder.status === 'read' ? 'Read' : 'Unread' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
