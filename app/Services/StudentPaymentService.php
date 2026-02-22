@@ -315,9 +315,6 @@ class StudentPaymentService
             ],
         ]);
 
-        // Immediately advance to "Accounting Verification" step (step 2, which requires_approval)
-        $workflowService->advanceWorkflow($instance, $userId);
-
         return $instance->fresh();
     }
 

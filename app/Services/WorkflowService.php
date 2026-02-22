@@ -171,9 +171,22 @@ class WorkflowService
             $approverIds = array_unique($approverIds);
         }
 
+        // Fallback 1: assign to all accounting users
         if (empty($approverIds)) {
-            // Fallback: assign to all accounting users
             $approverIds = User::where('role', 'accounting')->pluck('id')->toArray();
+        }
+
+        // Fallback 2: assign to admin users if no accounting users exist
+        if (empty($approverIds)) {
+            $approverIds = User::where('role', 'admin')->pluck('id')->toArray();
+        }
+
+        // Last resort: fail hard if no approvers can be found at all
+        if (empty($approverIds)) {
+            throw new \Exception(
+                'No approvers found for workflow step "' . $step['name'] . '". ' .
+                'Ensure at least one accounting or admin user exists in the system.'
+            );
         }
 
         foreach ($approverIds as $approverId) {

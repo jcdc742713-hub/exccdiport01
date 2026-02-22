@@ -9,18 +9,18 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // For SQLite and other databases, we need to check the current schema
-        // and update the status column if needed. Since MySQL uses string type,
-        // we don't need to rebuild the table - the string column already supports
-        // any text value including 'awaiting_approval'.
-        
-        // This migration is essentially a no-op for MySQL since the status column
-        // is already a VARCHAR that supports 'awaiting_approval'.
-        // For documentation purposes, we note that 'awaiting_approval' is now a valid status.
+        // Add 'awaiting_approval' to the status enum in transactions table
+        Schema::table('transactions', function (Blueprint $table) {
+            // For MySQL, we need to change the enum to include the new value
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('pending','paid','failed','cancelled','awaiting_approval') DEFAULT 'pending'");
+        });
     }
 
     public function down(): void
     {
-        // No-op - the status column already existed
+        // Remove 'awaiting_approval' from the status enum
+        Schema::table('transactions', function (Blueprint $table) {
+            DB::statement("ALTER TABLE transactions MODIFY COLUMN status ENUM('pending','paid','failed','cancelled') DEFAULT 'pending'");
+        });
     }
 };
