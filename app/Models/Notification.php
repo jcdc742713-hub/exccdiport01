@@ -13,6 +13,7 @@ class Notification extends Model
     protected $fillable = [
         'title',
         'message',
+        'type', // general | payment_due | payment_approved | payment_rejected
         'start_date',
         'end_date',
         'target_role', // student | accounting | admin | all
@@ -20,6 +21,9 @@ class Notification extends Model
         'is_active', // Whether notification is enabled
         'is_complete', // Auto-set when payment is complete
         'dismissed_at', // When user dismissed the notification
+        'term_ids', // JSON array of specific term IDs to target
+        'target_term_name', // Target by term name (e.g., "Upon Registration")
+        'trigger_days_before_due', // Show N days before due date
     ];
 
     protected $casts = [
@@ -28,6 +32,7 @@ class Notification extends Model
         'is_active' => 'boolean',
         'is_complete' => 'boolean',
         'dismissed_at' => 'datetime',
+        'term_ids' => 'array', // Cast JSON to array
     ];
 
     /**

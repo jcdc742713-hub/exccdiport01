@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Head, Link } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
@@ -303,6 +303,27 @@ const activeNotifications = computed(() => {
     return startDate <= now && (!endDate || endDate >= now)
   })
 })
+
+/**
+ * Track whether to show all notifications or just the first 3
+ */
+const showAllNotifications = ref(false)
+
+/**
+ * Show only the first 3 notifications, or all if showAllNotifications is true
+ */
+const visibleNotifications = computed(() => {
+  return showAllNotifications.value
+    ? activeNotifications.value
+    : activeNotifications.value.slice(0, 3)
+})
+
+/**
+ * Check if there are more notifications than the 3 shown by default
+ */
+const hasMoreNotifications = computed(() => {
+  return activeNotifications.value.length > 3
+})
 </script>
 
 <template>
@@ -435,38 +456,6 @@ const activeNotifications = computed(() => {
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- LEFT COLUMN -->
         <div class="lg:col-span-2 space-y-6">
-          <!-- Notifications -->
-          <div v-if="activeNotifications.length" class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 text-white">
-            <div class="flex items-center gap-2 mb-4">
-              <Bell class="w-6 h-6 text-blue-100" />
-              <h2 class="text-2xl font-bold">Important Updates</h2>
-            </div>
-
-            <div class="space-y-4">
-              <div
-                v-for="notification in activeNotifications"
-                :key="notification.id"
-                class="border-l-4 border-yellow-300 bg-white bg-opacity-10 p-5 rounded-lg backdrop-blur-sm hover:bg-opacity-20 transition"
-              >
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <h3 class="font-bold text-lg text-white">{{ notification.title }}</h3>
-                    <p class="text-blue-100 mt-2 text-sm leading-relaxed">{{ notification.message }}</p>
-                    <div class="mt-3 text-xs text-blue-200 space-y-1">
-                      <p v-if="notification.start_date">📅 <strong>Active from:</strong> {{ formatDate(notification.start_date) }}</p>
-                      <p v-if="notification.end_date">📅 <strong>Until:</strong> {{ formatDate(notification.end_date) }}</p>
-                    </div>
-                  </div>
-                  <div class="ml-4 flex-shrink-0">
-                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white text-blue-600">
-                      ✓ Active
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Payment Reminders History -->
           <div v-if="props.paymentReminders && props.paymentReminders.length > 0" class="bg-white rounded-lg shadow-md p-6">
             <div class="flex items-center justify-between mb-4">
@@ -738,6 +727,50 @@ const activeNotifications = computed(() => {
             <p class="text-xs text-yellow-800">
               <span class="font-semibold">⚠️ Note:</span> There is a discrepancy in your financial data. Please contact support if this persists.
             </p>
+          </div>
+
+          <!-- Important Updates / Notifications -->
+          <div v-if="activeNotifications.length">
+            <div class="flex items-center gap-2 mb-4">
+              <Bell class="w-6 h-6 text-blue-600" />
+              <h2 class="text-xl font-bold text-gray-900">Important Updates</h2>
+            </div>
+
+            <div class="space-y-4">
+              <div
+                v-for="notification in visibleNotifications"
+                :key="notification.id"
+                class="bg-white rounded-lg shadow-md border-l-4 border-blue-500 p-5 hover:shadow-lg hover:bg-blue-50 transition-all"
+              >
+                <div class="flex items-start justify-between mb-3">
+                  <h3 class="font-bold text-base text-gray-900 flex-1 pr-2">{{ notification.title }}</h3>
+                  <div class="flex-shrink-0">
+                    <div class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700 whitespace-nowrap">
+                      ✓ Active
+                    </div>
+                  </div>
+                </div>
+
+                <p class="text-gray-700 text-sm leading-relaxed mb-3">{{ notification.message }}</p>
+
+                <div class="pt-3 border-t border-gray-200 text-xs text-gray-600 space-y-1">
+                  <p v-if="notification.start_date">📅 <strong>From:</strong> {{ formatDate(notification.start_date) }}</p>
+                  <p v-if="notification.end_date">📅 <strong>Until:</strong> {{ formatDate(notification.end_date) }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- View More / Show Less Button -->
+            <div v-if="hasMoreNotifications" class="mt-4">
+              <button
+                @click="showAllNotifications = !showAllNotifications"
+                class="w-full text-center py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                {{ showAllNotifications 
+                  ? 'Show Less' 
+                  : `View More Updates (${activeNotifications.length - 3} more)` }}
+              </button>
+            </div>
           </div>
         </div>
       </div>

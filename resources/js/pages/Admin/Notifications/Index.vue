@@ -11,6 +11,7 @@ interface Notification {
   id: number
   title: string
   message: string
+  type?: string
   target_role: string
   start_date: string
   end_date: string
@@ -56,6 +57,26 @@ const getRoleColor = (role: string) => {
     all: 'bg-green-100 text-green-800',
   }
   return colors[role] || 'bg-gray-100 text-gray-800'
+}
+
+const getTypeLabel = (type?: string) => {
+  const labels: Record<string, string> = {
+    general: '📢 General',
+    payment_due: '💳 Payment Due',
+    payment_approved: '✅ Approved',
+    payment_rejected: '❌ Rejected',
+  }
+  return labels[type || 'general'] || 'General'
+}
+
+const getTypeColor = (type?: string) => {
+  const colors: Record<string, string> = {
+    general: 'bg-blue-100 text-blue-800',
+    payment_due: 'bg-amber-100 text-amber-800',
+    payment_approved: 'bg-emerald-100 text-emerald-800',
+    payment_rejected: 'bg-red-100 text-red-800',
+  }
+  return colors[type || 'general'] || 'bg-gray-100 text-gray-800'
 }
 
 const isActive = (notification: Notification) => {
@@ -141,6 +162,12 @@ const isActive = (notification: Notification) => {
                     <Users class="w-4 h-4" />
                     <span :class="['px-2 py-1 rounded-full text-xs font-medium', getRoleColor(notification.target_role)]">
                       {{ notification.target_role.charAt(0).toUpperCase() + notification.target_role.slice(1) }}
+                    </span>
+                  </div>
+
+                  <div v-if="notification.type" class="flex items-center gap-1">
+                    <span :class="['px-2 py-1 rounded-full text-xs font-medium', getTypeColor(notification.type)]">
+                      {{ getTypeLabel(notification.type) }}
                     </span>
                   </div>
 

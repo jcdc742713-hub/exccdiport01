@@ -2,15 +2,18 @@
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import { Head, router, useForm } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Search } from 'lucide-vue-next'
 
 interface WorkflowMeta {
     transaction_id: number
     amount: number
     payment_method: string
     term_name: string
+    year?: number | string
+    semester?: string
     student_user_id: number
     submitted_at: string
 }
@@ -34,7 +37,7 @@ interface Approval {
 
 const props = defineProps<{
     approvals: { data: Approval[]; links: any[] }
-    filters: { status?: string }
+    filters: { status?: string; year?: string; semester?: string }
 }>()
 
 const breadcrumbs = [
@@ -43,10 +46,35 @@ const breadcrumbs = [
 ]
 
 const filters = ref({ ...props.filters })
+const searchQuery = ref('')
 const showRejectDialog = ref(false)
 const selectedApprovalId = ref<number | null>(null)
 
 const rejectForm = useForm({ comments: '' })
+
+// Extract unique years from approvals
+const uniqueYears = computed(() => {
+  const years = new Set<string | number>()
+  props.approvals.data.forEach(approval => {
+    const year = approval.workflow_instance.metadata?.year
+    if (year) years.add(year)
+  })
+  return Array.from(years).sort((a, b) => {
+    const aNum = typeof a === 'string' ? parseInt(a) : a
+    const bNum = typeof b === 'string' ? parseInt(b) : b
+    return bNum - aNum
+  })
+})
+
+// Extract unique semesters from approvals
+const uniqueSemesters = computed(() => {
+  const semesters = new Set<string>()
+  props.approvals.data.forEach(approval => {
+    const semester = approval.workflow_instance.metadata?.semester
+    if (semester) semesters.add(semester)
+  })
+  return Array.from(semesters).sort()
+})
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(amount)
@@ -61,6 +89,44 @@ const formatMethod = (method: string) => ({
     credit_card: 'Credit Card', 
     debit_card: 'Debit Card',
 }[method] ?? method)
+
+const getStudentName = (approval: Approval) => {
+    const w = approval.workflow_instance.workflowable
+    if (w.user) return `${w.user.last_name}, ${w.user.first_name}`
+    return 'Unknown Student'
+}
+
+// Filter approvals by search query, year, semester, and status
+const filteredApprovals = computed(() => {
+  let result = props.approvals.data
+  
+  // Filter by year
+  if (filters.value.year) {
+    result = result.filter(approval => 
+      String(approval.workflow_instance.metadata?.year) === filters.value.year
+    )
+  }
+  
+  // Filter by semester
+  if (filters.value.semester) {
+    result = result.filter(approval => 
+      approval.workflow_instance.metadata?.semester === filters.value.semester
+    )
+  }
+  
+  // Filter by search query
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(approval => {
+      const studentName = getStudentName(approval).toLowerCase()
+      const ref = approval.workflow_instance.workflowable.reference.toLowerCase()
+      const studentId = approval.workflow_instance.workflowable.user?.student_id?.toLowerCase() ?? ''
+      return studentName.includes(query) || ref.includes(query) || studentId.includes(query)
+    })
+  }
+  
+  return result
+})
 
 const applyFilter = () => {
     router.get(route('approvals.index'), filters.value, { preserveState: true, replace: true })
@@ -88,12 +154,6 @@ const submitRejection = () => {
         },
     })
 }
-
-const getStudentName = (approval: Approval) => {
-    const w = approval.workflow_instance.workflowable
-    if (w.user) return `${w.user.last_name}, ${w.user.first_name}`
-    return 'Unknown Student'
-}
 </script>
 
 <template>
@@ -102,30 +162,76 @@ const getStudentName = (approval: Approval) => {
         <div class="w-full p-6 space-y-6">
             <Breadcrumbs :items="breadcrumbs" />
 
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold">Payment Approvals</h1>
-                    <p class="text-gray-500">Review and verify student payment submissions</p>
+            <div>
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h1 class="text-3xl font-bold">Payment Approvals</h1>
+                        <p class="text-gray-500">Review and verify student payment submissions</p>
+                    </div>
                 </div>
-                <select
-                    v-model="filters.status"
-                    @change="applyFilter"
-                    class="border rounded-lg px-3 py-2 text-sm"
-                >
-                    <option value="">All</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                </select>
+
+                <!-- Filters Row -->
+                <div class="flex flex-col md:flex-row gap-4">
+                    <!-- Search Field -->
+                    <div class="flex-1 relative">
+                        <Search class="absolute left-3 top-3 text-gray-400" :size="18" />
+                        <input
+                            v-model="searchQuery"
+                            type="text"
+                            placeholder="Search by student name, ID, or reference..."
+                            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                    </div>
+
+                    <!-- Year Dropdown -->
+                    <select
+                        v-model="filters.year"
+                        @change="applyFilter"
+                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[120px]"
+                    >
+                        <option value="">All Years</option>
+                        <option v-for="year in uniqueYears" :key="year" :value="String(year)">
+                            {{ year }}
+                        </option>
+                    </select>
+
+                    <!-- Semester Dropdown -->
+                    <select
+                        v-model="filters.semester"
+                        @change="applyFilter"
+                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[120px]"
+                    >
+                        <option value="">All Semesters</option>
+                        <option v-for="semester in uniqueSemesters" :key="semester" :value="semester">
+                            {{ semester }}
+                        </option>
+                    </select>
+
+                    <!-- Status Filter Dropdown -->
+                    <select
+                        v-model="filters.status"
+                        @change="applyFilter"
+                        class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-sm font-medium text-gray-700 min-w-[120px]"
+                    >
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                </div>
             </div>
 
-            <div v-if="approvals.data.length === 0" class="text-center py-16 text-gray-400">
-                No approvals found.
+            <div v-if="filteredApprovals.length === 0" class="text-center py-16 text-gray-400">
+                {{ 
+                  searchQuery || filters.year || filters.semester || filters.status
+                    ? 'No approvals match your filters.' 
+                    : 'No approvals found.' 
+                }}
             </div>
 
             <div v-else class="space-y-4">
                 <div
-                    v-for="approval in approvals.data"
+                    v-for="approval in filteredApprovals"
                     :key="approval.id"
                     class="border rounded-xl bg-white p-5 shadow-sm"
                 >
@@ -151,7 +257,7 @@ const getStudentName = (approval: Approval) => {
                         </p>
                     </div>
 
-                    <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600">
+                        <div class="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600">
                         <div>
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Term</p>
                             <p>{{ approval.workflow_instance.metadata?.term_name ?? '—' }}</p>
@@ -168,10 +274,6 @@ const getStudentName = (approval: Approval) => {
                             <p class="text-xs text-gray-400 uppercase tracking-wide">Submitted</p>
                             <p>{{ formatDate(approval.created_at) }}</p>
                         </div>
-                    </div>
-
-                    <div v-if="approval.comments" class="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
-                        <strong>Comments:</strong> {{ approval.comments }}
                     </div>
 
                     <div v-if="approval.status === 'pending'" class="mt-4 flex gap-3">

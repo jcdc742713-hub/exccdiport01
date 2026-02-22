@@ -73,6 +73,10 @@ class DatabaseSeeder extends Seeder
         $this->call(StudentFirstPaymentSeeder::class);
         $this->command->newLine();
 
+        $this->command->info('👥 Step 9: Creating Additional Test Students...');
+        $this->call(AdditionalStudentSeeder::class);
+        $this->command->newLine();
+
         $this->command->info('✅ Database seeding completed successfully!');
         $this->command->newLine();
         

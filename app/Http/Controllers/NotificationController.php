@@ -48,8 +48,14 @@ class NotificationController extends Controller
             ->orderBy('first_name')
             ->get();
         
+        // Get all available payment terms for term-based filtering
+        $paymentTerms = \App\Models\StudentPaymentTerm::distinct()
+            ->orderBy('term_order')
+            ->get(['id', 'term_name', 'term_order']);
+        
         return Inertia::render('Admin/Notifications/Create', [
             'students' => $students,
+            'paymentTerms' => $paymentTerms,
         ]);
     }
 
@@ -61,13 +67,18 @@ class NotificationController extends Controller
         $this->authorize('create', Notification::class);
 
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'message'     => 'nullable|string|max:2000',
-            'start_date'  => 'required|date',
-            'end_date'    => 'nullable|date|after_or_equal:start_date',
-            'target_role' => 'required|string|in:student,accounting,admin,all',
-            'user_id'     => 'nullable|integer|exists:users,id',
-            'is_active'   => 'boolean',
+            'title'                    => 'required|string|max:255',
+            'message'                  => 'nullable|string|max:2000',
+            'type'                     => 'nullable|string|in:general,payment_due,payment_approved,payment_rejected',
+            'start_date'               => 'required|date',
+            'end_date'                 => 'nullable|date|after_or_equal:start_date',
+            'target_role'              => 'required|string|in:student,accounting,admin,all',
+            'user_id'                  => 'nullable|integer|exists:users,id',
+            'is_active'                => 'boolean',
+            'term_ids'                 => 'nullable|array',
+            'term_ids.*'               => 'integer|exists:student_payment_terms,id',
+            'target_term_name'         => 'nullable|string|in:Upon Registration,Prelim,Midterm,Semi-Final,Final',
+            'trigger_days_before_due'  => 'nullable|integer|min:0|max:90',
         ]);
 
         // If user_id is specified, it's a specific student notification
@@ -108,9 +119,15 @@ class NotificationController extends Controller
             ->orderBy('first_name')
             ->get();
 
+        // Get all available payment terms for term-based filtering
+        $paymentTerms = \App\Models\StudentPaymentTerm::distinct()
+            ->orderBy('term_order')
+            ->get(['id', 'term_name', 'term_order']);
+
         return Inertia::render('Admin/Notifications/Edit', [
             'notification' => $notification,
             'students' => $students,
+            'paymentTerms' => $paymentTerms,
         ]);
     }
 
@@ -122,13 +139,18 @@ class NotificationController extends Controller
         $this->authorize('update', $notification);
 
         $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'message'     => 'nullable|string|max:2000',
-            'start_date'  => 'required|date',
-            'end_date'    => 'nullable|date|after_or_equal:start_date',
-            'target_role' => 'required|string|in:student,accounting,admin,all',
-            'user_id'     => 'nullable|integer|exists:users,id',
-            'is_active'   => 'boolean',
+            'title'                    => 'required|string|max:255',
+            'message'                  => 'nullable|string|max:2000',
+            'type'                     => 'nullable|string|in:general,payment_due,payment_approved,payment_rejected',
+            'start_date'               => 'required|date',
+            'end_date'                 => 'nullable|date|after_or_equal:start_date',
+            'target_role'              => 'required|string|in:student,accounting,admin,all',
+            'user_id'                  => 'nullable|integer|exists:users,id',
+            'is_active'                => 'boolean',
+            'term_ids'                 => 'nullable|array',
+            'term_ids.*'               => 'integer|exists:student_payment_terms,id',
+            'target_term_name'         => 'nullable|string|in:Upon Registration,Prelim,Midterm,Semi-Final,Final',
+            'trigger_days_before_due'  => 'nullable|integer|min:0|max:90',
         ]);
 
         // If user_id is specified, it's a specific student notification

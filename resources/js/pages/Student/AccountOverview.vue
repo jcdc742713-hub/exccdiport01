@@ -79,6 +79,20 @@ type PaymentTerm = {
   paid_date: string | null
 }
 
+type Notification = {
+  id: number
+  title: string
+  message: string
+  type?: string
+  target_role: string
+  user_id?: number | null
+  is_active: boolean
+  start_date?: string
+  end_date?: string
+  dismissed_at?: string | null
+  created_at: string
+}
+
 const props = withDefaults(defineProps<{
   account: Account
   transactions: Transaction[]
@@ -87,13 +101,15 @@ const props = withDefaults(defineProps<{
   tab?: string
   latestAssessment?: Assessment
   paymentTerms?: PaymentTerm[]
+  notifications?: Notification[]
 }>(), {
   currentTerm: () => ({
     year: new Date().getFullYear(),
     semester: '1st Sem'
   }),
   tab: 'fees',
-  paymentTerms: () => []
+  paymentTerms: () => [],
+  notifications: () => []
 })
 
 const breadcrumbs = [
@@ -136,12 +152,40 @@ const getTermIdFromUrl = (): number | null => {
 }
 
 // Ensure correct tab on mount and pre-select term if provided
-const autoRefreshInterval = ref<NodeJS.Timeout | null>(null)
+const autoRefreshInterval = ref<ReturnType<typeof setInterval> | null>(null)
 
 // Check if there are any awaiting_approval transactions
 const hasAwaitingApprovals = computed(() => {
   return props.transactions.some(t => t.status === 'awaiting_approval')
 })
+
+// Filter active, non-dismissed notifications
+const activeNotifications = computed(() => {
+  return props.notifications
+    .filter(n => !n.dismissed_at && !hiddenNotifications.value.has(n.id))
+    .sort((a, b) => {
+      // Sort payment_due to top
+      if (a.type === 'payment_due' && b.type !== 'payment_due') return -1
+      if (a.type !== 'payment_due' && b.type === 'payment_due') return 1
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+})
+
+// Track notifications that are auto-hidden
+const hiddenNotifications = ref<Set<number>>(new Set())
+
+// Dismiss notification (can be manual or auto)
+const dismissNotification = (notificationId: number) => {
+  hiddenNotifications.value.add(notificationId)
+  router.post(route('notifications.dismiss', notificationId))
+}
+
+// Auto-dismiss notification after 5 seconds
+const autoDismissNotification = (notificationId: number) => {
+  setTimeout(() => {
+    dismissNotification(notificationId)
+  }, 5000)
+}
 
 onMounted(() => {
   const urlTab = getTabFromUrl()
@@ -164,13 +208,20 @@ onMounted(() => {
 
     if (hasAwaitingApprovals.value) {
       autoRefreshInterval.value = setInterval(() => {
-        router.reload({ preserveScroll: true })
+        router.reload()
       }, 10000) // Refresh every 10 seconds
     }
   }
 
   // Start auto-refresh if needed
   startAutoRefresh()
+
+  // Auto-dismiss notifications after 5 seconds
+  props.notifications.forEach(notification => {
+    if (!notification.dismissed_at && !hiddenNotifications.value.has(notification.id)) {
+      autoDismissNotification(notification.id)
+    }
+  })
 
   // Watch for changes in awaiting approvals status
   watch(hasAwaitingApprovals, (newVal) => {
@@ -343,6 +394,30 @@ const submitPayment = () => {
 
     <div class="w-full p-6">
       <Breadcrumbs :items="breadcrumbs" />
+
+      <!-- Active Notifications -->
+      <div v-for="notification in activeNotifications" :key="notification.id" class="mb-4 p-4 rounded-lg border flex items-start justify-between"
+        :class="notification.type === 'payment_due'
+          ? 'bg-amber-50 border-amber-200'
+          : 'bg-blue-50 border-blue-200'">
+        <div class="flex-1">
+          <h3 class="font-semibold mb-1"
+            :class="notification.type === 'payment_due'
+              ? 'text-amber-900'
+              : 'text-blue-900'">
+            {{ notification.title }}
+          </h3>
+          <p :class="notification.type === 'payment_due'
+            ? 'text-amber-800 text-sm'
+            : 'text-blue-800 text-sm'">
+            {{ notification.message }}
+          </p>
+        </div>
+        <button @click="dismissNotification(notification.id)"
+          class="ml-4 text-gray-400 hover:text-gray-600 flex-shrink-0">
+          ✕
+        </button>
+      </div>
 
       <!-- Auto-Refresh Status Indicator -->
       <div v-if="hasAwaitingApprovals" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">

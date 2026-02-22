@@ -14,27 +14,42 @@ interface Student {
   email: string
 }
 
+interface PaymentTerm {
+  id: number
+  term_name: string
+  term_order: number
+}
+
 interface Props {
   notification?: {
     id: number
     title: string
     message: string
+    type?: string
     target_role: string
     start_date: string
     end_date: string
     user_id?: number | null
     is_active: boolean
+    term_ids?: number[] | null
+    target_term_name?: string | null
+    trigger_days_before_due?: number | null
   }
   students?: Student[]
+  paymentTerms?: PaymentTerm[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   notification: undefined,
   students: () => [],
+  paymentTerms: () => [],
 })
 
 const isEditing = computed(() => !!props.notification?.id)
 const searchQuery = ref('')
+const termSelectionMode = ref<'none' | 'by_name' | 'by_id'>(
+  props.notification?.target_term_name ? 'by_name' : props.notification?.term_ids ? 'by_id' : 'none'
+)
 
 const formatDateForInput = (dateString: string | undefined): string => {
   if (!dateString) return ''
@@ -44,14 +59,29 @@ const formatDateForInput = (dateString: string | undefined): string => {
 const form = useForm({
   title: props.notification?.title || '',
   message: props.notification?.message || '',
+  type: props.notification?.type || 'general',
   target_role: props.notification?.target_role || 'student',
   start_date: formatDateForInput(props.notification?.start_date),
   end_date: formatDateForInput(props.notification?.end_date),
   user_id: props.notification?.user_id || null,
   is_active: props.notification?.is_active !== false,
+  term_ids: props.notification?.term_ids || [],
+  target_term_name: props.notification?.target_term_name || '',
+  trigger_days_before_due: props.notification?.trigger_days_before_due || null,
 })
 
 const submit = () => {
+  // Clear term fields if 'none' mode is selected
+  if (termSelectionMode.value === 'none') {
+    form.term_ids = []
+    form.target_term_name = ''
+    form.trigger_days_before_due = null
+  } else if (termSelectionMode.value === 'by_name') {
+    form.term_ids = []
+  } else if (termSelectionMode.value === 'by_id') {
+    form.target_term_name = ''
+  }
+
   if (isEditing.value && props.notification?.id) {
     form.put(route('notifications.update', props.notification.id))
   } else {
@@ -64,6 +94,13 @@ const roleOptions = [
   { value: 'accounting', label: 'Accounting Staff' },
   { value: 'admin', label: 'Admins' },
   { value: 'all', label: 'Everyone' },
+]
+
+const typeOptions = [
+  { value: 'general', label: '📢 General Notification' },
+  { value: 'payment_due', label: '💳 Payment Due Reminder' },
+  { value: 'payment_approved', label: '✅ Payment Approved' },
+  { value: 'payment_rejected', label: '❌ Payment Rejected' },
 ]
 
 const messages = {
@@ -182,6 +219,23 @@ const breadcrumbs = [
                     <p class="text-xs text-gray-500 mt-2">{{ form.message.length }} characters</p>
                   </div>
 
+                  <!-- Notification Type -->
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-3">
+                      Notification Type
+                    </label>
+                    <select
+                      v-model="form.type"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    >
+                      <option v-for="option in typeOptions" :key="option.value" :value="option.value">
+                        {{ option.label }}
+                      </option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">Classify the notification type for better organization</p>
+                    <p v-if="form.errors.type" class="text-red-600 text-sm mt-2">{{ form.errors.type }}</p>
+                  </div>
+
                   <!-- Date Range -->
                   <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -251,7 +305,10 @@ const breadcrumbs = [
                       Send to Specific Student (Optional)
                     </label>
                     <p class="text-xs text-gray-600 mb-3">
-                      Leave empty to send to all students. Or search for a specific student below.
+                      <strong>Leave empty</strong> to send to <strong>all students</strong>. Or select a specific student below to send a <strong>personal notification</strong> (e.g., payment confirmation) that only that student will see.
+                    </p>
+                    <p class="text-xs text-green-700 bg-green-50 p-2 rounded mb-3 border border-green-200">
+                      💡 <strong>Personal notifications (payment alerts, approvals):</strong> When you select a specific student, only that student sees the notification. This is perfect for payment-related messages like "Your payment has been approved" or "Payment due reminder for [StudentName]".
                     </p>
 
                     <!-- Search Input -->
@@ -301,6 +358,133 @@ const breadcrumbs = [
                     </div>
 
                     <p v-if="form.errors.user_id" class="text-red-600 text-sm mt-2">{{ form.errors.user_id }}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <!-- Term-Based Scheduling (Optional) -->
+            <Card v-if="form.target_role === 'student'">
+              <CardHeader>
+                <CardTitle class="flex items-center gap-2">
+                  <span>📅 Term-Based Scheduling (Optional)</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div class="space-y-6">
+                  <p class="text-xs text-gray-600">
+                    Limit this notification to specific payment terms. Leave empty to send to all students with any payment term.
+                  </p>
+
+                  <!-- Selection Mode Toggle -->
+                  <div>
+                    <label class="block text-sm font-semibold text-gray-900 mb-3">
+                      How do you want to select terms?
+                    </label>
+                    <div class="space-y-2">
+                      <div class="flex items-center">
+                        <input
+                          id="mode_none"
+                          v-model="termSelectionMode"
+                          type="radio"
+                          value="none"
+                          class="w-4 h-4 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label for="mode_none" class="ml-3 text-sm text-gray-700 cursor-pointer">
+                          No specific terms (send to all students)
+                        </label>
+                      </div>
+                      <div class="flex items-center">
+                        <input
+                          id="mode_by_name"
+                          v-model="termSelectionMode"
+                          type="radio"
+                          value="by_name"
+                          class="w-4 h-4 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label for="mode_by_name" class="ml-3 text-sm text-gray-700 cursor-pointer">
+                          By term name (e.g., "Prelim", "Midterm")
+                        </label>
+                      </div>
+                      <div class="flex items-center">
+                        <input
+                          id="mode_by_id"
+                          v-model="termSelectionMode"
+                          type="radio"
+                          value="by_id"
+                          class="w-4 h-4 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label for="mode_by_id" class="ml-3 text-sm text-gray-700 cursor-pointer">
+                          By specific payment terms
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Select by Term Name -->
+                  <div v-if="termSelectionMode === 'by_name'">
+                    <label class="block text-sm font-semibold text-gray-900 mb-3">
+                      Which term? *
+                    </label>
+                    <select
+                      v-model="form.target_term_name"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                      required
+                    >
+                      <option value="">-- Select a Term --</option>
+                      <option value="Upon Registration">Upon Registration</option>
+                      <option value="Prelim">Prelim</option>
+                      <option value="Midterm">Midterm</option>
+                      <option value="Semi-Final">Semi-Final</option>
+                      <option value="Final">Final</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-2">Only students with this term will see the notification</p>
+                    <p v-if="form.errors.target_term_name" class="text-red-600 text-sm mt-2">{{ form.errors.target_term_name }}</p>
+                  </div>
+
+                  <!-- Select by Specific Payment Terms -->
+                  <div v-if="termSelectionMode === 'by_id'">
+                    <label class="block text-sm font-semibold text-gray-900 mb-3">
+                      Select Payment Terms *
+                    </label>
+                    <div class="space-y-2 border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto">
+                      <div v-if="paymentTerms.length === 0" class="text-gray-500 text-sm">
+                        No payment terms available
+                      </div>
+                      <div v-for="term in paymentTerms" :key="term.id" class="flex items-center">
+                        <input
+                          :id="`term_${term.id}`"
+                          type="checkbox"
+                          :value="term.id"
+                          v-model="form.term_ids"
+                          class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                        />
+                        <label :for="`term_${term.id}`" class="ml-3 text-sm text-gray-700 cursor-pointer">
+                          {{ term.term_name }}
+                        </label>
+                      </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">Only students with these terms will see the notification</p>
+                    <p v-if="form.errors['term_ids.*']" class="text-red-600 text-sm mt-2">{{ form.errors['term_ids.*'] }}</p>
+                  </div>
+
+                  <!-- Trigger Days Before Due Date -->
+                  <div v-if="termSelectionMode !== 'none'">
+                    <label class="block text-sm font-semibold text-gray-900 mb-3">
+                      Show this notification N days before term due date (Optional)
+                    </label>
+                    <input
+                      v-model.number="form.trigger_days_before_due"
+                      type="number"
+                      placeholder="e.g., 3 days before due date"
+                      min="0"
+                      max="90"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                    />
+                    <p class="text-xs text-gray-500 mt-2">
+                      If specified, notification will only show to students when their payment term is due within this many days
+                    </p>
+                    <p v-if="form.errors.trigger_days_before_due" class="text-red-600 text-sm mt-2">{{ form.errors.trigger_days_before_due }}</p>
                   </div>
                 </div>
               </CardContent>

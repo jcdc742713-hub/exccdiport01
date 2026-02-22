@@ -15,6 +15,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PaymentTermsController;
 // NEW: Workflow Controllers
 use App\Http\Controllers\WorkflowController;
 use App\Http\Controllers\WorkflowApprovalController;
@@ -34,6 +35,9 @@ Route::get('/', function () {
 // ============================================
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Notification dismissal (for all authenticated users)
+    Route::post('notifications/{notification}/dismiss', [NotificationController::class, 'dismiss'])->name('notifications.dismiss');
 });
 
 // ============================================
@@ -115,7 +119,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])->prefix('admin')->group(fu
     
     // Notification Management
     Route::resource('notifications', NotificationController::class);
-    Route::post('notifications/{notification}/dismiss', [NotificationController::class, 'dismiss'])->name('notifications.dismiss');
+    
+    // Payment Terms Management
+    Route::get('/payment-terms', [PaymentTermsController::class, 'index'])->name('admin.payment-terms.index');
+    Route::post('/payment-terms/{paymentTerm}/due-date', [PaymentTermsController::class, 'updateDueDate'])->name('admin.payment-terms.update-due-date');
 });
 
 // ============================================
