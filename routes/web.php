@@ -211,7 +211,7 @@ require __DIR__ . '/settings.php';
 
 // Debug routes (only in local environment)
 if (app()->environment('local')) {
-    Route::get('/debug/csrf-token', [\App\Http\Controllers\Debug\DebugController::class, 'csrfToken']);
+    Route::middleware('auth')->get('/debug/csrf-token', [\App\Http\Controllers\Debug\DebugController::class, 'csrfToken']);
 }
 
 require __DIR__ . '/auth.php';

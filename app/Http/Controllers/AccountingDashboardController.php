@@ -16,7 +16,14 @@ class AccountingDashboardController extends Controller
     public function index()
     {
         $currentYear = now()->year;
-        $currentSemester = now()->month >= 1 && now()->month <= 5 ? '2nd Sem' : '1st Sem';
+        $month = now()->month;
+        if ($month >= 6 && $month <= 10) {
+            $currentSemester = '1st Sem';
+        } elseif ($month >= 11 || $month <= 3) {
+            $currentSemester = '2nd Sem';
+        } else {
+            $currentSemester = 'Summer';
+        }
 
         // Existing stats
         $stats = [
@@ -125,13 +132,7 @@ class AccountingDashboardController extends Controller
             'total_assessments' => StudentAssessment::where('status', 'active')->count(),
             'total_assessment_amount' => StudentAssessment::where('status', 'active')
                 ->sum('total_assessment'),
-            'pending_assessments' => abs(User::where('role', 'student')
-                ->whereHas('account', function ($q) {
-                    $q->where('balance', '>', 0);
-                })
-                ->with('account')
-                ->get()
-                ->sum('account.balance')),
+            'pending_assessments' => StudentAssessment::where('status', 'pending')->count(),
             'recent_assessments' => StudentAssessment::where('created_at', '>=', now()->subDays(30))
                 ->count(),
             'recent_payments_amount' => Transaction::where('kind', 'payment')

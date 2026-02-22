@@ -56,6 +56,10 @@ class DatabaseSeeder extends Seeder
         $this->call(WorkflowSeeder::class);
         $this->command->newLine();
 
+        $this->command->info('⚙️  Step 4b: Seeding Payment Approval Workflow...');
+        $this->call(PaymentApprovalWorkflowSeeder::class);
+        $this->command->newLine();
+
         $this->command->info('📋 Step 5: Creating Student Assessments & Transactions...');
         $this->call(ComprehensiveAssessmentSeeder::class);
         $this->command->newLine();

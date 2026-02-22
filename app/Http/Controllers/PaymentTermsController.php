@@ -32,7 +32,7 @@ class PaymentTermsController extends Controller
                     'due_date' => $term->due_date,
                     'status' => $term->status,
                     'student_id' => $student->student_id ?? 'Unknown',
-                    'student_name' => $term->studentAssessment->user->first_name . ' ' . $term->studentAssessment->user->last_name,
+                    'student_name' => $term->studentAssessment->user->name,
                     'assessment_id' => $term->student_assessment_id,
                 ];
             });

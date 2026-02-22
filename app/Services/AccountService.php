@@ -35,8 +35,9 @@ class AccountService
         if ($user->student) {
             $user->student->update(['total_balance' => $balance]);
 
-            // Auto-promote when balance is cleared
-            if ($balance <= 0) {
+            // Auto-promote only when balance is fully paid (< 0 includes credit balance)
+            // Only promote if there were charges that have been paid in full
+            if ($balance < 0 || ($balance == 0 && $charges > 0)) {
                 self::promoteStudent($user);
             }
         }

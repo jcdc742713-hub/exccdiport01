@@ -398,11 +398,12 @@ const payNow = (transaction: Transaction) => {
                                             :class="{
                                                 'bg-green-100 text-green-800': t.status === 'paid',
                                                 'bg-yellow-100 text-yellow-800': t.status === 'pending',
+                                                'bg-blue-100 text-blue-800': t.status === 'awaiting_approval',
                                                 'bg-red-100 text-red-800': t.status === 'failed',
                                                 'bg-gray-100 text-gray-800': t.status === 'cancelled'
                                             }"
                                         >
-                                            {{ t.status }}
+                                            {{ t.status === 'awaiting_approval' ? 'Awaiting Verification' : t.status }}
                                         </span>
                                     </td>
                                     <td class="p-3 text-sm text-gray-600">{{ formatDate(t.created_at) }}</td>

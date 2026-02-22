@@ -58,7 +58,7 @@ class Transaction extends Model
 
     public function download()
     {
-        $transactions = \App\Models\Transaction::with('fee')->get();
+        $transactions = auth()->user()->transactions()->with('fee')->get();
 
         // Use a PDF generator like DomPDF
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.transactions', [

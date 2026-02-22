@@ -43,6 +43,7 @@ type RecentTransaction = {
   amount: number
   status: string
   created_at: string
+  kind?: string
 }
 
 type PaymentTerm = {
@@ -213,6 +214,14 @@ const pendingChargesInfo = computed(() => {
       ? 'All charges are processed'
       : 'Charges awaiting processing',
   }
+})
+
+/**
+ * Check if there are any awaiting_approval transactions
+ * When a payment is awaiting approval, students should see a visual indicator
+ */
+const hasAwaitingApprovals = computed(() => {
+  return props.recentTransactions.some(t => t.status === 'awaiting_approval')
 })
 
 /**
@@ -449,6 +458,16 @@ const hasMoreNotifications = computed(() => {
               <span class="font-medium">View History</span>
             </Link>
           </div>
+        </div>
+      </div>
+
+      <!-- Pending Payment Notice -->
+      <div v-if="hasAwaitingApprovals" class="p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3 mb-6">
+        <div class="flex items-center gap-2 flex-1">
+          <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          <p class="text-sm text-blue-700">
+            <strong>Checking for updates...</strong> Your payment is awaiting verification. This page will update automatically as soon as it's processed.
+          </p>
         </div>
       </div>
 

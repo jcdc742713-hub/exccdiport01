@@ -31,21 +31,8 @@ class AdminDashboardController extends Controller
             $pendingApprovals = \App\Models\WorkflowApproval::where('status', 'pending')->count();
         }
 
-        // Get recent activities
-        $recentActivities = collect([
-            [
-                'type' => 'admin_created',
-                'description' => 'New admin user created',
-                'timestamp' => now()->subHours(2)->toDateTimeString(),
-                'user' => 'System Administrator'
-            ],
-            [
-                'type' => 'notification_sent',
-                'description' => 'Payment notification sent to students',
-                'timestamp' => now()->subHours(1)->toDateTimeString(),
-                'user' => 'System Administrator'
-            ]
-        ]);
+        // Get recent activities (placeholder for future activity log system)
+        $recentActivities = collect();
 
         // Get recent notifications
         $recentNotifications = Notification::orderByDesc('created_at')
