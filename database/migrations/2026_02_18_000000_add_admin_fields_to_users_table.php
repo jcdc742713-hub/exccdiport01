@@ -37,23 +37,33 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeignIdFor('created_by');
-            $table->dropForeignIdFor('updated_by');
-
-            $table->dropIndex(['role']);
-            $table->dropIndex(['is_active']);
-            $table->dropIndex(['admin_type']);
-
-            $table->dropColumn([
-                'is_active',
-                'terms_accepted_at',
-                'permissions',
-                'department',
-                'admin_type',
-                'created_by',
-                'updated_by',
-                'last_login_at',
-            ]);
+            // Safely drop columns (FK constraints will be handled automatically)
+            if (Schema::hasColumn('users', 'is_active')) {
+                $table->dropColumn('is_active');
+            }
+            if (Schema::hasColumn('users', 'terms_accepted_at')) {
+                $table->dropColumn('terms_accepted_at');
+            }
+            if (Schema::hasColumn('users', 'permissions')) {
+                $table->dropColumn('permissions');
+            }
+            if (Schema::hasColumn('users', 'department')) {
+                $table->dropColumn('department');
+            }
+            if (Schema::hasColumn('users', 'admin_type')) {
+                $table->dropColumn('admin_type');
+            }
+            if (Schema::hasColumn('users', 'created_by')) {
+                $table->dropForeign(['created_by']);
+                $table->dropColumn('created_by');
+            }
+            if (Schema::hasColumn('users', 'updated_by')) {
+                $table->dropForeign(['updated_by']);
+                $table->dropColumn('updated_by');
+            }
+            if (Schema::hasColumn('users', 'last_login_at')) {
+                $table->dropColumn('last_login_at');
+            }
         });
     }
 };

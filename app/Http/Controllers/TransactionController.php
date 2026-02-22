@@ -241,18 +241,19 @@ class TransactionController extends Controller
     {
         $user = $request->user();
 
-        // Students cannot use 'cash' payment method - only admin and accounting can record cash payments
-        $paymentMethodRules = 'required|string|in:';
-        if ($user->role->value === 'student') {
-            $paymentMethodRules .= 'gcash,bank_transfer,credit_card,debit_card';
+        // Determine allowed payment methods based on user role
+        // Students cannot use 'cash' - only admin and accounting can record cash payments
+        $isStudent = $user->role === \App\Enums\UserRoleEnum::STUDENT;
+        
+        if ($isStudent) {
+            $allowedMethods = ['gcash', 'bank_transfer', 'credit_card', 'debit_card'];
         } else {
-            // Admin and accounting can use all payment methods including cash
-            $paymentMethodRules .= 'cash,gcash,bank_transfer,credit_card,debit_card';
+            $allowedMethods = ['cash', 'gcash', 'bank_transfer', 'credit_card', 'debit_card'];
         }
 
         $data = $request->validate([
             'amount' => 'required|numeric|min:0.01',
-            'payment_method' => $paymentMethodRules,
+            'payment_method' => ['required', 'string', \Illuminate\Validation\Rule::in($allowedMethods)],
             'paid_at' => 'required|date',
             'description' => 'nullable|string|max:255',
             'selected_term_id' => 'required|exists:student_payment_terms,id',
@@ -260,25 +261,30 @@ class TransactionController extends Controller
 
         try {
             $paymentService = new \App\Services\StudentPaymentService();
-            
+
+            // Students require approval; staff (admin/accounting) bypass it
+            $requiresApproval = $isStudent;
+
             $result = $paymentService->processPayment($user, (float) $data['amount'], [
-                'payment_method' => $data['payment_method'],
-                'paid_at' => $data['paid_at'],
-                'description' => $data['description'] ?? null,
+                'payment_method'   => $data['payment_method'],
+                'paid_at'          => $data['paid_at'],
+                'description'      => $data['description'] ?? null,
                 'selected_term_id' => (int) $data['selected_term_id'],
-                'term_name' => \App\Models\StudentPaymentTerm::find($data['selected_term_id'])?->term_name,
-            ]);
+                'term_name'        => \App\Models\StudentPaymentTerm::find($data['selected_term_id'])?->term_name,
+            ], $requiresApproval);  // ← pass the flag
 
-            // Trigger payment recorded event for notifications
-            event(new \App\Events\PaymentRecorded(
-                $user,
-                $result['transaction_id'],
-                (float) $data['amount'],
-                $result['transaction_reference']
-            ));
+            // Trigger payment recorded event for notifications (for verified payments only)
+            if (!$requiresApproval) {
+                event(new \App\Events\PaymentRecorded(
+                    $user,
+                    $result['transaction_id'],
+                    (float) $data['amount'],
+                    $result['transaction_reference']
+                ));
+            }
 
-            // ✅ Only check promotion if user has a student profile
-            if ($user->role->value === 'student' && $user->student) {
+            // ✅ Only check promotion if user has a student profile and payment is approved
+            if ($isStudent && $user->student && !$requiresApproval) {
                 $this->checkAndPromoteStudent($user->student);
             }
 

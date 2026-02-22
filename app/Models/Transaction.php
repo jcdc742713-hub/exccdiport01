@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use App\Services\AccountService;
 
 class Transaction extends Model
@@ -33,6 +34,19 @@ class Transaction extends Model
     public function fee(): BelongsTo
     {
         return $this->belongsTo(Fee::class);
+    }
+
+    public function workflowInstances(): MorphMany
+    {
+        return $this->morphMany(WorkflowInstance::class, 'workflowable');
+    }
+
+    public function pendingApproval(): ?WorkflowInstance
+    {
+        return $this->workflowInstances()
+            ->where('status', 'in_progress')
+            ->latest()
+            ->first();
     }
 
     protected static function booted()

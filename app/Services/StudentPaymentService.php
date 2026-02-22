@@ -6,9 +6,11 @@ use App\Models\StudentAssessment;
 use App\Models\StudentPaymentTerm;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Models\Workflow;
+use App\Models\WorkflowInstance;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 use Exception;
-use DB;
 
 class StudentPaymentService
 {
@@ -21,13 +23,14 @@ class StudentPaymentService
      * 
      * @param User $user
      * @param float $paymentAmount
-     * @param array $data Payment details (payment_method, paid_at, description, selected_term_id)
-     * @return array Payment result with carryover info
+     * @param array $data Payment details (payment_method, paid_at, description, selected_term_id, term_name)
+     * @param bool $requiresApproval Whether this payment needs accounting approval
+     * @return array Payment result with carryover info and workflow details
      * @throws Exception
      */
-    public function processPayment(User $user, float $paymentAmount, array $data): array
+    public function processPayment(User $user, float $paymentAmount, array $data, bool $requiresApproval = false): array
     {
-        return DB::transaction(function () use ($user, $paymentAmount, $data) {
+        return DB::transaction(function () use ($user, $paymentAmount, $data, $requiresApproval) {
             // Get latest assessment
             $assessment = StudentAssessment::where('user_id', $user->id)
                 ->latest('created_at')
@@ -37,34 +40,52 @@ class StudentPaymentService
                 throw new Exception('No active assessment found for student.');
             }
 
+            // Determine transaction status based on approval requirement
+            $transactionStatus = $requiresApproval ? 'awaiting_approval' : 'paid';
+
             // Record transaction
             $transaction = Transaction::create([
                 'user_id' => $user->id,
                 'reference' => 'PAY-' . strtoupper(Str::random(8)),
                 'kind' => 'payment',
-                'type' => 'Payment',
+                'type' => 'Payment: ' . ($data['term_name'] ?? 'General'),
                 'amount' => $paymentAmount,
-                'status' => 'paid',
+                'status' => $transactionStatus,
                 'payment_channel' => $data['payment_method'] ?? 'cash',
-                'paid_at' => $data['paid_at'] ?? now(),
+                'paid_at' => $transactionStatus === 'paid' ? ($data['paid_at'] ?? now()) : null,
                 'meta' => [
                     'description' => $data['description'] ?? 'Payment',
                     'term_name' => $data['term_name'] ?? null,
+                    'selected_term_id' => $data['selected_term_id'] ?? null,
+                    'payment_method' => $data['payment_method'] ?? null,
                 ],
             ]);
 
-            // Apply payment to terms with carryover logic
-            $paymentBreakdown = $this->applyPaymentWithCarryover($assessment, $paymentAmount, $data['selected_term_id'] ?? null);
+            // Only update payment terms and balance if payment is immediately approved
+            $paymentBreakdown = [];
+            if (!$requiresApproval) {
+                $paymentBreakdown = $this->applyPaymentWithCarryover($assessment, $paymentAmount, $data['selected_term_id'] ?? null);
+                $this->updateStudentBalance($user);
+            }
+            // If requiresApproval=true, terms are NOT updated yet.
+            // They will be updated in finalizeApprovedPayment() after accounting approves.
 
-            // Update account balance
-            $this->updateStudentBalance($user);
+            // Start workflow if approval is required
+            $workflowInstance = null;
+            if ($requiresApproval) {
+                $workflowInstance = $this->startPaymentApprovalWorkflow($transaction, $user->id, $data);
+            }
 
             return [
-                'success' => true,
-                'transaction_id' => $transaction->id,
+                'success'              => true,
+                'transaction_id'       => $transaction->id,
                 'transaction_reference' => $transaction->reference,
-                'payment_breakdown' => $paymentBreakdown,
-                'message' => $this->generatePaymentMessage($paymentBreakdown),
+                'payment_breakdown'    => $paymentBreakdown,
+                'requires_approval'    => $requiresApproval,
+                'workflow_instance_id' => $workflowInstance?->id,
+                'message'              => $requiresApproval
+                    ? 'Payment submitted successfully. Awaiting accounting verification.'
+                    : ($paymentBreakdown ? $this->generatePaymentMessage($paymentBreakdown) : 'Payment recorded successfully.'),
             ];
         });
     }
@@ -266,5 +287,81 @@ class StudentPaymentService
         }
 
         return (float) $assessment->paymentTerms()->sum('balance');
+    }
+
+    /**
+     * Start the payment approval workflow for a student-submitted transaction
+     */
+    private function startPaymentApprovalWorkflow(Transaction $transaction, int $userId, array $data): WorkflowInstance
+    {
+        $workflow = Workflow::where('type', 'payment_approval')
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $workflowService = app(WorkflowService::class);
+        
+        $instance = $workflowService->startWorkflow($workflow, $transaction, $userId);
+        
+        // Store payment data in instance metadata for accounting to see during review
+        $instance->update([
+            'metadata' => [
+                'transaction_id'   => $transaction->id,
+                'amount'           => $transaction->amount,
+                'payment_method'   => $data['payment_method'] ?? null,
+                'selected_term_id' => $data['selected_term_id'] ?? null,
+                'term_name'        => $data['term_name'] ?? null,
+                'student_user_id'  => $userId,
+                'submitted_at'     => now()->toIso8601String(),
+            ],
+        ]);
+
+        // Immediately advance to "Accounting Verification" step (step 2, which requires_approval)
+        $workflowService->advanceWorkflow($instance, $userId);
+
+        return $instance->fresh();
+    }
+
+    /**
+     * Finalize a payment after accounting approval.
+     * Called by WorkflowService after the last approval is granted.
+     * Updates payment terms, balance, marks transaction as paid.
+     */
+    public function finalizeApprovedPayment(Transaction $transaction): void
+    {
+        DB::transaction(function () use ($transaction) {
+            $user = $transaction->user;
+
+            $assessment = StudentAssessment::where('user_id', $user->id)
+                ->latest('created_at')
+                ->first();
+
+            if (!$assessment) {
+                throw new Exception('Assessment not found during payment finalization.');
+            }
+
+            // Get term ID from transaction meta
+            $selectedTermId = $transaction->meta['selected_term_id'] ?? null;
+
+            // Apply payment to terms
+            $this->applyPaymentWithCarryover($assessment, (float) $transaction->amount, $selectedTermId);
+
+            // Mark transaction as paid
+            $transaction->update([
+                'status'  => 'paid',
+                'paid_at' => now(),
+            ]);
+
+            // Update student account balance
+            $this->updateStudentBalance($user);
+        });
+    }
+
+    /**
+     * Cancel a pending payment after accounting rejection.
+     * Marks transaction as cancelled. Terms are NOT updated (payment never applied).
+     */
+    public function cancelRejectedPayment(Transaction $transaction): void
+    {
+        $transaction->update(['status' => 'cancelled']);
     }
 }

@@ -7,8 +7,8 @@
 // TYPE DEFINITIONS
 // ============================================================================
 
-export type PaymentTermStatus = 'pending' | 'partial' | 'paid' | 'overdue'
-export type TransactionStatus = 'pending' | 'paid' | 'failed' | 'cancelled'
+export type PaymentTermStatus = 'pending' | 'partial' | 'paid' | 'overdue' | 'awaiting_approval'
+export type TransactionStatus = 'pending' | 'awaiting_approval' | 'paid' | 'failed' | 'cancelled'
 export type AssessmentStatus = 'active' | 'graduated' | 'archived' | 'pending'
 export type TransactionType = 'payment' | 'charge' | 'refund' | 'adjustment'
 export type UserRole = 'student' | 'admin' | 'accounting' | string
@@ -158,6 +158,12 @@ export function getPaymentTermStatusConfig(
       bgClass: 'bg-red-100',
       textClass: 'text-red-800',
     },
+    awaiting_approval: {
+      label: 'Awaiting Verification',
+      color: 'info',
+      bgClass: 'bg-blue-100',
+      textClass: 'text-blue-800',
+    },
   }
 
   return statusMap[status as string] || {
@@ -186,6 +192,12 @@ export function getTransactionStatusConfig(
       color: 'warning',
       bgClass: 'bg-yellow-100',
       textClass: 'text-yellow-800',
+    },
+    awaiting_approval: {
+      label: 'Awaiting Verification',
+      color: 'info',
+      bgClass: 'bg-blue-100',
+      textClass: 'text-blue-800',
     },
     failed: {
       label: 'Failed',

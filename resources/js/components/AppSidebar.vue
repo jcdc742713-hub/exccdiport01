@@ -6,7 +6,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, Sid
 import { dashboard } from '@/routes';
 import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { BookOpen, Folder, LayoutGrid, CreditCard, History, Users, Receipt, Banknote, GraduationCap, User, SettingsIcon, Bell } from 'lucide-vue-next';
+import { BookOpen, Folder, LayoutGrid, CreditCard, History, Users, Receipt, Banknote, GraduationCap, User, SettingsIcon, Bell, CheckCircle2 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 import { computed } from 'vue';
 import { StudentUser } from '@/types/user';
@@ -93,6 +93,12 @@ const allNavItems: NavItem[] = [
         title: 'Student Fee Management',
         href: route('student-fees.index'),
         icon: Receipt, // Make sure to import Receipt from lucide-vue-next
+        roles: ['accounting', 'admin'],
+    },
+    {
+        title: 'Payment Approvals',
+        href: route('approvals.index'),
+        icon: CheckCircle2,
         roles: ['accounting', 'admin'],
     },
 ];

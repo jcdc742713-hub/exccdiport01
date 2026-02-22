@@ -16,7 +16,10 @@ class WorkflowApprovalController extends Controller
     public function index(Request $request)
     {
         $approvals = WorkflowApproval::query()
-            ->with(['workflowInstance.workflow', 'workflowInstance.workflowable'])
+            ->with([
+                'workflowInstance.workflow',
+                'workflowInstance.workflowable.user', // load transaction → student user
+            ])
             ->where('approver_id', auth()->id())
             ->when($request->status, fn($q, $status) => $q->where('status', $status))
             ->latest()

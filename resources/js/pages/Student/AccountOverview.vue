@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { Head, Link, useForm } from '@inertiajs/vue3'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { Head, Link, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/layouts/AppLayout.vue'
 import Breadcrumbs from '@/components/Breadcrumbs.vue'
 import { useDataFormatting } from '@/composables/useDataFormatting'
@@ -136,6 +136,13 @@ const getTermIdFromUrl = (): number | null => {
 }
 
 // Ensure correct tab on mount and pre-select term if provided
+const autoRefreshInterval = ref<NodeJS.Timeout | null>(null)
+
+// Check if there are any awaiting_approval transactions
+const hasAwaitingApprovals = computed(() => {
+  return props.transactions.some(t => t.status === 'awaiting_approval')
+})
+
 onMounted(() => {
   const urlTab = getTabFromUrl()
   if (urlTab === 'payment' || urlTab === 'history') {
@@ -146,6 +153,41 @@ onMounted(() => {
   const termId = getTermIdFromUrl()
   if (termId) {
     paymentForm.selected_term_id = termId
+  }
+
+  // Auto-refresh page every 10 seconds if there are awaiting_approval payments
+  // This ensures that when accounting approves a payment, the student sees it update automatically
+  const startAutoRefresh = () => {
+    if (autoRefreshInterval.value) {
+      clearInterval(autoRefreshInterval.value)
+    }
+
+    if (hasAwaitingApprovals.value) {
+      autoRefreshInterval.value = setInterval(() => {
+        router.reload({ preserveScroll: true })
+      }, 10000) // Refresh every 10 seconds
+    }
+  }
+
+  // Start auto-refresh if needed
+  startAutoRefresh()
+
+  // Watch for changes in awaiting approvals status
+  watch(hasAwaitingApprovals, (newVal) => {
+    if (newVal) {
+      startAutoRefresh()
+    } else if (autoRefreshInterval.value) {
+      clearInterval(autoRefreshInterval.value)
+      autoRefreshInterval.value = null
+    }
+  })
+})
+
+// Clean up interval on unmount
+onUnmounted(() => {
+  if (autoRefreshInterval.value) {
+    clearInterval(autoRefreshInterval.value)
+    autoRefreshInterval.value = null
   }
 })
 
@@ -281,7 +323,7 @@ const submitPayment = () => {
       // Reset form after successful payment
       paymentForm.reset()
       paymentForm.amount = 0
-      paymentForm.payment_method = 'cash'
+      paymentForm.payment_method = 'gcash'
       paymentForm.paid_at = new Date().toISOString().split('T')[0]
       paymentForm.selected_term_id = null
       
@@ -301,6 +343,16 @@ const submitPayment = () => {
 
     <div class="w-full p-6">
       <Breadcrumbs :items="breadcrumbs" />
+
+      <!-- Auto-Refresh Status Indicator -->
+      <div v-if="hasAwaitingApprovals" class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+          <p class="text-sm text-blue-700">
+            <strong>Checking for updates...</strong> Your payment is awaiting verification. This page will update automatically.
+          </p>
+        </div>
+      </div>
 
       <!-- Header -->
       <div class="mb-6">
@@ -567,10 +619,12 @@ const submitPayment = () => {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Amount -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <label for="payment-amount" class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
                   <input
+                    id="payment-amount"
                     v-model="paymentForm.amount"
                     type="number"
+                    name="amount"
                     step="0.01"
                     min="0"
                     :max="remainingBalance"
@@ -589,9 +643,11 @@ const submitPayment = () => {
 
                 <!-- Payment Method -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                  <label for="payment-method" class="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
                   <select
+                    id="payment-method"
                     v-model="paymentForm.payment_method"
+                    name="payment_method"
                     :disabled="remainingBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
@@ -607,12 +663,14 @@ const submitPayment = () => {
 
                 <!-- Select Term (Required) -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">
+                  <label for="payment-term" class="block text-sm font-medium text-gray-700 mb-1">
                     Select Term
                     <span class="text-xs text-red-500">*</span>
                   </label>
                   <select
+                    id="payment-term"
                     v-model.number="paymentForm.selected_term_id"
+                    name="selected_term_id"
                     required
                     :disabled="remainingBalance <= 0 || availableTermsForPayment.length === 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -634,10 +692,12 @@ const submitPayment = () => {
 
                 <!-- Payment Date -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+                  <label for="payment-date" class="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                   <input
+                    id="payment-date"
                     v-model="paymentForm.paid_at"
                     type="date"
+                    name="paid_at"
                     required
                     :disabled="remainingBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
