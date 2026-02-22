@@ -415,7 +415,14 @@ class StudentFeeController extends Controller
         $assessment = StudentAssessment::where('user_id', $userId)
             ->where('status', 'active')
             ->latest()
-            ->firstOrFail();
+            ->first();
+
+        // If no active assessment exists, redirect to create one
+        if (!$assessment) {
+            return redirect()
+                ->route('student-fees.create')
+                ->with('info', 'Please create an assessment for this student first.');
+        }
 
         $subjects = Subject::active()
             ->where('course', $student->course)
@@ -432,6 +439,43 @@ class StudentFeeController extends Controller
             'subjects' => $subjects,
             'fees' => $fees,
         ]);
+    }
+
+    /**
+     * Update student assessment
+     */
+    public function update(Request $request, $userId)
+    {
+        $validated = $request->validate([
+            'year_level' => 'required|string',
+            'semester' => 'required|string',
+            'school_year' => 'required|string',
+            'subjects' => 'required|array',
+            'other_fees' => 'required|array',
+        ]);
+
+        $assessment = StudentAssessment::where('user_id', $userId)
+            ->where('status', 'active')
+            ->latest()
+            ->firstOrFail();
+
+        $tuitionTotal = collect($validated['subjects'])->sum('amount') ?? 0;
+        $otherFeesTotal = collect($validated['other_fees'])->sum('amount') ?? 0;
+
+        $assessment->update([
+            'year_level' => $validated['year_level'],
+            'semester' => $validated['semester'],
+            'school_year' => $validated['school_year'],
+            'subjects' => $validated['subjects'],
+            'fee_breakdown' => $validated['other_fees'],
+            'tuition_fee' => $tuitionTotal,
+            'other_fees' => $otherFeesTotal,
+            'total_assessment' => $tuitionTotal + $otherFeesTotal,
+        ]);
+
+        return redirect()
+            ->route('student-fees.show', $userId)
+            ->with('success', 'Assessment updated successfully!');
     }
 
     /**

@@ -75,15 +75,15 @@ Route::middleware(['auth', 'verified', 'role:admin,accounting'])->prefix('studen
     Route::post('/', [StudentFeeController::class, 'store'])->name('student-fees.store');
     
     // View and manage specific student
-    Route::get('/{user}', [StudentFeeController::class, 'show'])->name('student-fees.show');
-    Route::get('/{user}/edit', [StudentFeeController::class, 'edit'])->name('student-fees.edit');
-    Route::put('/{user}', [StudentFeeController::class, 'update'])->name('student-fees.update');
+    Route::get('/{userId}', [StudentFeeController::class, 'show'])->name('student-fees.show');
+    Route::get('/{userId}/edit', [StudentFeeController::class, 'edit'])->name('student-fees.edit');
+    Route::put('/{userId}', [StudentFeeController::class, 'update'])->name('student-fees.update');
     
     // Payment for student
-    Route::post('/{user}/payments', [StudentFeeController::class, 'storePayment'])->name('student-fees.payments.store');
+    Route::post('/{userId}/payments', [StudentFeeController::class, 'storePayment'])->name('student-fees.payments.store');
     
     // Export PDF
-    Route::get('/{user}/export-pdf', [StudentFeeController::class, 'exportPdf'])->name('student-fees.export-pdf');
+    Route::get('/{userId}/export-pdf', [StudentFeeController::class, 'exportPdf'])->name('student-fees.export-pdf');
 });
 
 // ============================================

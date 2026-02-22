@@ -78,8 +78,8 @@ const breadcrumbs = [
 ];
 
 // Initialize selected items from existing assessment
-const selectedSubjects = ref<AssessmentSubject[]>([...props.assessment.subjects]);
-const selectedFees = ref<FeeBreakdownItem[]>([...props.assessment.fee_breakdown]);
+const selectedSubjects = ref<AssessmentSubject[]>([...(props.assessment.subjects || [])]);
+const selectedFees = ref<FeeBreakdownItem[]>([...(props.assessment.fee_breakdown || [])]);
 
 // Form
 const form = useForm({
