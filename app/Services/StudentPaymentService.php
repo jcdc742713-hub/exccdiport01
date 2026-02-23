@@ -40,6 +40,51 @@ class StudentPaymentService
                 throw new Exception('No active assessment found for student.');
             }
 
+            // GUARD: Check if a pending approval already exists for this term
+            // This prevents the race condition where a student submits multiple payments
+            // for the same term before accounting approves the first one
+            if ($requiresApproval && isset($data['selected_term_id'])) {
+                $selectedTermId = $data['selected_term_id'];
+                
+                // Check for existing awaiting_approval transaction for this term
+                $existingPendingPayment = Transaction::where('user_id', $user->id)
+                    ->where('status', 'awaiting_approval')
+                    ->whereJsonContains('meta->selected_term_id', $selectedTermId)
+                    ->exists();
+                
+                if ($existingPendingPayment) {
+                    throw new Exception(
+                        'A payment for this term is already awaiting accounting approval. ' .
+                        'Please wait for approval to complete before submitting another payment.'
+                    );
+                }
+
+                // Also validate that the payment amount doesn't exceed remaining balance
+                // accounting for already-pending payments
+                $selectedTerm = $assessment->paymentTerms()
+                    ->where('id', $selectedTermId)
+                    ->first();
+
+                if ($selectedTerm) {
+                    // Calculate pending amounts for this term
+                    $pendingAmounts = Transaction::where('user_id', $user->id)
+                        ->where('kind', 'payment')
+                        ->where('status', 'awaiting_approval')
+                        ->whereJsonContains('meta->selected_term_id', $selectedTermId)
+                        ->sum('amount');
+
+                    $effectiveBalance = max(0, $selectedTerm->balance - $pendingAmounts);
+
+                    if ($paymentAmount > $effectiveBalance) {
+                        throw new Exception(
+                            'Payment amount exceeds available balance. ' .
+                            'Available: ₱' . number_format($effectiveBalance, 2) . ', ' .
+                            'Pending approval: ₱' . number_format($pendingAmounts, 2) . '.'
+                        );
+                    }
+                }
+            }
+
             // Determine transaction status based on approval requirement
             $transactionStatus = $requiresApproval ? 'awaiting_approval' : 'paid';
 

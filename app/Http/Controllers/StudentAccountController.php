@@ -200,12 +200,27 @@ class StudentAccountController extends Controller
         });
 
         return Inertia::render('Student/AccountOverview', [
-            'account'           => $user->account,
-            'transactions'      => $user->transactions ?? [], // Use user->transactions, not account->transactions
-            'fees'              => $fees->values(),
-            'latestAssessment'  => $latestAssessment,
-            'paymentTerms'      => $paymentTerms,
-            'notifications'     => $notifications,
+            'account'                   => $user->account,
+            'transactions'              => $user->transactions ?? [], // Use user->transactions, not account->transactions
+            'fees'                      => $fees->values(),
+            'latestAssessment'          => $latestAssessment,
+            'paymentTerms'              => $paymentTerms,
+            'notifications'             => $notifications,
+            'pendingApprovalPayments'   => $user->transactions
+                ->filter(function ($t) {
+                    return $t->kind === 'payment' && $t->status === 'awaiting_approval';
+                })
+                ->map(function ($t) {
+                    return [
+                        'id'                => $t->id,
+                        'reference'         => $t->reference,
+                        'amount'            => (float) $t->amount,
+                        'selected_term_id'  => $t->meta['selected_term_id'] ?? null,
+                        'term_name'         => $t->meta['term_name'] ?? 'General',
+                        'created_at'        => $t->created_at,
+                    ];
+                })
+                ->values(),
         ]);
     }
 }

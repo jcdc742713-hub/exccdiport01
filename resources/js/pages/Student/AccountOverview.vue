@@ -102,6 +102,14 @@ const props = withDefaults(defineProps<{
   latestAssessment?: Assessment
   paymentTerms?: PaymentTerm[]
   notifications?: Notification[]
+  pendingApprovalPayments?: Array<{
+    id: number
+    reference: string
+    amount: number
+    selected_term_id: number | null
+    term_name: string
+    created_at: string
+  }>
 }>(), {
   currentTerm: () => ({
     year: new Date().getFullYear(),
@@ -109,7 +117,8 @@ const props = withDefaults(defineProps<{
   }),
   tab: 'fees',
   paymentTerms: () => [],
-  notifications: () => []
+  notifications: () => [],
+  pendingApprovalPayments: () => []
 })
 
 const breadcrumbs = [
@@ -289,6 +298,39 @@ const remainingBalance = computed(() => {
   return rounded > 0 ? rounded : 0
 })
 
+// Track pending approval payments grouped by term
+const pendingPaymentsByTerm = computed(() => {
+  const pending: Record<number, number> = {}
+  props.pendingApprovalPayments?.forEach(payment => {
+    if (payment.selected_term_id !== null) {
+      pending[payment.selected_term_id] = (pending[payment.selected_term_id] || 0) + payment.amount
+    }
+  })
+  return pending
+})
+
+// Calculate the effective balance (actual balance minus pending payments)
+const effectiveBalance = computed(() => {
+  if (!props.paymentTerms || props.paymentTerms.length === 0) {
+    return remainingBalance.value
+  }
+  
+  const totalBalance = props.paymentTerms.reduce((sum, term) => sum + Number(term.balance || 0), 0)
+  const totalPending = props.pendingApprovalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0
+  
+  return Math.max(0, Math.round((totalBalance - totalPending) * 100) / 100)
+})
+
+// Check if there are any pending payments
+const hasPendingPayments = computed(() => {
+  return props.pendingApprovalPayments && props.pendingApprovalPayments.length > 0
+})
+
+// Get pending payments for a specific term
+const getPendingAmountForTerm = (termId: number): number => {
+  return pendingPaymentsByTerm.value[termId] || 0
+}
+
 const availableTermsForPayment = computed(() => {
   const unpaidTerms = props.paymentTerms
     ?.filter(term => term.balance > 0)
@@ -297,18 +339,25 @@ const availableTermsForPayment = computed(() => {
   // Only the first unpaid term is selectable
   const firstUnpaidIndex = unpaidTerms.length > 0 ? 0 : -1
   
-  return unpaidTerms.map((term, index) => ({
-    id: term.id,
-    label: term.term_name,
-    term_name: term.term_name,
-    value: term.id,
-    balance: term.balance,
-    amount: term.amount,
-    due_date: term.due_date,
-    status: term.status,
-    isSelectable: index === firstUnpaidIndex,
-    hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
-  }))
+  return unpaidTerms.map((term, index) => {
+    const pendingAmount = getPendingAmountForTerm(term.id)
+    const hasPending = pendingAmount > 0
+    
+    return {
+      id: term.id,
+      label: term.term_name,
+      term_name: term.term_name,
+      value: term.id,
+      balance: term.balance,
+      amount: term.amount,
+      due_date: term.due_date,
+      status: term.status,
+      isSelectable: index === firstUnpaidIndex && !hasPending,
+      hasCarryover: term.remarks?.toLowerCase().includes('carried') || false,
+      hasPending,
+      pendingAmount,
+    }
+  })
 })
 
 const paymentHistory = computed(() => {
@@ -329,12 +378,45 @@ const selectedTermInfo = computed(() => {
   return availableTermsForPayment.value.find(term => term.id === paymentForm.selected_term_id) || null
 })
 
+const submitButtonMessage = computed(() => {
+  if (!paymentForm.selected_term_id) {
+    return 'Select a Payment Term'
+  }
+  
+  const selectedTermHasPending = getPendingAmountForTerm(paymentForm.selected_term_id) > 0
+  if (selectedTermHasPending) {
+    const pending = getPendingAmountForTerm(paymentForm.selected_term_id)
+    return `⏳ Awaiting Approval (₱${formatCurrency(pending)}) — Cannot Submit`
+  }
+  
+  return 'Submit Payment'
+})
+
+const isPaymentDisabledReason = computed(() => {
+  if (!paymentForm.selected_term_id) {
+    return 'Select a term to proceed'
+  }
+  
+  const selectedTermHasPending = getPendingAmountForTerm(paymentForm.selected_term_id) > 0
+  if (selectedTermHasPending) {
+    const pending = getPendingAmountForTerm(paymentForm.selected_term_id)
+    return `A payment of ₱${formatCurrency(pending)} for this term is awaiting accounting approval. Please wait before submitting another payment.`
+  }
+  
+  return ''
+})
+
 const canSubmitPayment = computed(() => {
+  // Cannot submit if pending payments exist for the selected term
+  const selectedTermHasPending = paymentForm.selected_term_id !== null && 
+    getPendingAmountForTerm(paymentForm.selected_term_id) > 0
+
   return (
-    remainingBalance.value > 0 &&
+    effectiveBalance.value > 0 &&
     paymentForm.amount > 0 &&
     paymentForm.selected_term_id !== null &&
-    availableTermsForPayment.value.length > 0
+    availableTermsForPayment.value.length > 0 &&
+    !selectedTermHasPending
   )
 })
 
@@ -639,6 +721,26 @@ const submitPayment = () => {
           <div v-if="activeTab === 'history'">
             <h2 class="text-lg font-semibold mb-4">Payment History</h2>
             
+            <!-- Pending Payments Section -->
+            <div v-if="hasPendingPayments" class="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+              <div class="flex items-center gap-2 mb-3">
+                <Clock :size="18" class="text-amber-600" />
+                <h3 class="font-semibold text-amber-900">Pending Approval ({{ pendingApprovalPayments.length }})</h3>
+              </div>
+              <div class="space-y-2">
+                <div v-for="payment in pendingApprovalPayments" :key="payment.id" class="flex justify-between items-center p-3 bg-white rounded border border-amber-200">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900">{{ payment.term_name }}</p>
+                    <p class="text-xs text-gray-600">{{ payment.reference }} • {{ formatDate(payment.created_at) }}</p>
+                  </div>
+                  <div class="text-right">
+                    <p class="text-sm font-semibold text-amber-700">₱{{ formatCurrency(payment.amount) }}</p>
+                    <p class="text-xs text-amber-600">⏳ Awaiting Approval</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             <div v-if="paymentHistory.length" class="space-y-3">
               <div
                 v-for="payment in paymentHistory"
@@ -670,7 +772,7 @@ const submitPayment = () => {
               </div>
             </div>
 
-            <div v-else class="text-center py-12">
+            <div v-else-if="!hasPendingPayments" class="text-center py-12">
               <XCircle :size="48" class="text-gray-400 mx-auto mb-3" />
               <p class="text-gray-500">No payment history yet</p>
               <p class="text-sm text-gray-400 mt-1">Your payments will appear here after you make them</p>
@@ -680,6 +782,23 @@ const submitPayment = () => {
           <!-- Payment Form Tab -->
           <div v-if="activeTab === 'payment'">
             <h2 class="text-2xl font-bold mb-6">Add New Payment</h2>
+            
+            <!-- Pending Payment Warning Banner -->
+            <div v-if="hasPendingPayments" class="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-lg">
+              <div class="flex items-start gap-3">
+                <AlertCircle :size="20" class="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div class="flex-1">
+                  <p class="font-semibold text-amber-900 mb-2">⏳ Pending Payment(s) Awaiting Approval</p>
+                  <div class="space-y-1 text-sm text-amber-800">
+                    <div v-for="payment in pendingApprovalPayments" :key="payment.id" class="flex justify-between">
+                      <span>{{ payment.term_name }} ({{ payment.reference }})</span>
+                      <span class="font-semibold">₱{{ formatCurrency(payment.amount) }}</span>
+                    </div>
+                  </div>
+                  <p class="text-xs text-amber-700 mt-2 italic">Please wait for accounting to verify and approve your pending payment(s) before submitting another payment for the same term.</p>
+                </div>
+              </div>
+            </div>
             
             <!-- No Balance Message -->
             <div v-if="remainingBalance <= 0" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -752,7 +871,7 @@ const submitPayment = () => {
                   >
                     <option :value="null">-- Choose a payment term --</option>
                     <option v-for="term in availableTermsForPayment" :key="term.id" :value="term.id" :disabled="!term.isSelectable">
-                      {{ term.label }} - {{ formatCurrency(term.balance) }} {{ !term.isSelectable ? '(Not yet available)' : '' }}
+                      {{ term.label }}{{ term.hasPending ? ` (⏳ Pending ₱${formatCurrency(term.pendingAmount)} approval)` : ` - ₱${formatCurrency(term.balance)}` }}{{ !term.isSelectable && !term.hasPending ? ' (Not yet available)' : '' }}
                     </option>
                   </select>
                   <p class="text-xs text-gray-500 mt-1">
@@ -788,11 +907,15 @@ const submitPayment = () => {
                     type="submit"
                     class="w-full px-5 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 font-medium"
                     :disabled="!canSubmitPayment || paymentForm.processing"
+                    :title="isPaymentDisabledReason"
                   >
                     <span v-if="paymentForm.processing">Processing...</span>
                     <span v-else-if="remainingBalance <= 0">No Balance to Pay</span>
-                    <span v-else>Record Payment</span>
+                    <span v-else>{{ submitButtonMessage }}</span>
                   </button>
+                  <p v-if="isPaymentDisabledReason" class="text-xs text-amber-700 mt-2">
+                    {{ isPaymentDisabledReason }}
+                  </p>
                 </div>
               </div>
             </form>
