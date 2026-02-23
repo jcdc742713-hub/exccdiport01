@@ -414,6 +414,7 @@ const canSubmitPayment = computed(() => {
   return (
     effectiveBalance.value > 0 &&
     paymentForm.amount > 0 &&
+    paymentForm.amount <= effectiveBalance.value &&
     paymentForm.selected_term_id !== null &&
     availableTermsForPayment.value.length > 0 &&
     !selectedTermHasPending
@@ -445,8 +446,14 @@ const submitPayment = () => {
     return
   }
 
-  if (paymentForm.amount > remainingBalance.value) {
-    paymentForm.setError('amount', 'Amount cannot exceed remaining balance')
+  // Use effectiveBalance (which subtracts pending payments) to prevent overpayment
+  if (paymentForm.amount > effectiveBalance.value) {
+    const pendingTotal = props.pendingApprovalPayments?.reduce((sum, p) => sum + p.amount, 0) || 0
+    if (pendingTotal > 0) {
+      paymentForm.setError('amount', `Amount cannot exceed available balance of ₱${formatCurrency(effectiveBalance.value)} (${formatCurrency(pendingTotal)} is awaiting approval)`)
+    } else {
+      paymentForm.setError('amount', 'Amount cannot exceed remaining balance')
+    }
     return
   }
 
@@ -821,14 +828,15 @@ const submitPayment = () => {
                     name="amount"
                     step="0.01"
                     min="0"
-                    :max="remainingBalance"
+                    :max="effectiveBalance"
                     placeholder="0.00"
                     required
-                    :disabled="remainingBalance <= 0"
+                    :disabled="effectiveBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                   <p class="text-xs text-gray-500 mt-1">
-                    Maximum: {{ formatCurrency(remainingBalance) }}
+                    Maximum: {{ formatCurrency(effectiveBalance) }}
+                    <span v-if="hasPendingPayments" class="text-amber-600 ml-1">({{ formatCurrency(remainingBalance - effectiveBalance) }} awaiting approval)</span>
                   </p>
                   <div v-if="paymentForm.errors.amount" class="text-red-500 text-sm mt-1">
                     {{ paymentForm.errors.amount }}
@@ -842,7 +850,7 @@ const submitPayment = () => {
                     id="payment-method"
                     v-model="paymentForm.payment_method"
                     name="payment_method"
-                    :disabled="remainingBalance <= 0"
+                    :disabled="effectiveBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="gcash">GCash</option>
@@ -866,7 +874,7 @@ const submitPayment = () => {
                     v-model.number="paymentForm.selected_term_id"
                     name="selected_term_id"
                     required
-                    :disabled="remainingBalance <= 0 || availableTermsForPayment.length === 0"
+                    :disabled="effectiveBalance <= 0 || availableTermsForPayment.length === 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option :value="null">-- Choose a payment term --</option>
@@ -893,7 +901,7 @@ const submitPayment = () => {
                     type="date"
                     name="paid_at"
                     required
-                    :disabled="remainingBalance <= 0"
+                    :disabled="effectiveBalance <= 0"
                     class="w-full px-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                   <div v-if="paymentForm.errors.paid_at" class="text-red-500 text-sm mt-1">
@@ -910,6 +918,7 @@ const submitPayment = () => {
                     :title="isPaymentDisabledReason"
                   >
                     <span v-if="paymentForm.processing">Processing...</span>
+                    <span v-else-if="effectiveBalance <= 0 && remainingBalance > 0">Payment Awaiting Approval</span>
                     <span v-else-if="remainingBalance <= 0">No Balance to Pay</span>
                     <span v-else>{{ submitButtonMessage }}</span>
                   </button>

@@ -215,7 +215,8 @@ class StudentAccountController extends Controller
                         'id'                => $t->id,
                         'reference'         => $t->reference,
                         'amount'            => (float) $t->amount,
-                        'selected_term_id'  => $t->meta['selected_term_id'] ?? null,
+                        // Cast to int so JS strict comparisons (===) work correctly
+                        'selected_term_id'  => isset($t->meta['selected_term_id']) ? (int) $t->meta['selected_term_id'] : null,
                         'term_name'         => $t->meta['term_name'] ?? 'General',
                         'created_at'        => $t->created_at,
                     ];
