@@ -471,7 +471,9 @@ const submitPayment = () => {
       activeTab.value = 'history'
     },
     onError: (errors) => {
-      console.error('Payment errors:', errors)
+      // Form validation errors are automatically set on paymentForm
+      // and displayed via paymentForm.errors properties
+      console.error('Payment submission failed:', errors)
     },
   })
 }

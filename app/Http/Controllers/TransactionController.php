@@ -292,7 +292,10 @@ class TransactionController extends Controller
                 ->with('success', $result['message']);
 
         } catch (\Exception $e) {
-            return back()->with('error', 'Payment processing failed: ' . $e->getMessage());
+            // Throw validation exception so it appears as form error
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'amount' => $e->getMessage(),
+            ]);
         }
     }
 

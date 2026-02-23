@@ -266,7 +266,7 @@ const formatDate = (date: string) => {
 
                                 <!-- Payment Method -->
                                 <div class="space-y-2">
-                                    <Label for="payment_method">Payment Method</Label>
+                                    <Label>Payment Method</Label>
                                     <div class="px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
                                         <p class="text-gray-700 font-medium">Cash</p>
                                         <p class="text-xs text-gray-500">On-campus, in-person payment</p>

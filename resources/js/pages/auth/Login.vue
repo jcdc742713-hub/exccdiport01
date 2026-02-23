@@ -6,8 +6,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthBase from '@/layouts/AuthLayout.vue';
-import { register } from '@/routes';
-import { request } from '@/routes/password';
 import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import {
@@ -171,7 +169,7 @@ const togglePasswordVisibility = () => {
 
             <div class="text-center text-sm text-muted-foreground pt-4 border-t">
                 Don't have an account?
-                <TextLink :href="register()">Sign up as Student</TextLink>
+                <TextLink :href="route('register')">Sign up as Student</TextLink>
             </div>
         </div>
 
@@ -221,7 +219,7 @@ const togglePasswordVisibility = () => {
                     <div class="grid gap-2">
                         <div class="flex items-center justify-between">
                             <Label for="password">Password</Label>
-                            <TextLink v-if="canResetPassword" :href="request()" class="text-sm">
+                            <TextLink v-if="canResetPassword" :href="route('password.request')" class="text-sm">
                                 Forgot password?
                             </TextLink>
                         </div>

@@ -9,7 +9,6 @@ import {
 import type { User, StudentUser } from '@/types';
 import { Link, router } from '@inertiajs/vue3';
 import { LogOut, Settings } from 'lucide-vue-next';
-import { edit } from '@/routes/profile';
 
 interface Props {
     user: User | StudentUser;
@@ -35,7 +34,7 @@ const handleLogout = () => {
         <DropdownMenuItem as-child>
             <Link
                 class="block w-full"
-                :href="edit()"
+                :href="route('profile.edit')"
                 as="button"
             >
                 <Settings class="mr-2 h-4 w-4" />

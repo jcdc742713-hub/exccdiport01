@@ -3,24 +3,21 @@ import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { toUrl, urlIsActive } from '@/lib/utils';
-import { appearance } from '@/routes';
-import { edit as editPassword } from '@/routes/password';
-import { edit } from '@/routes/profile';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/vue3';
 
 const sidebarNavItems: NavItem[] = [
     {
         title: 'Profile',
-        href: edit(),
+        href: route('profile.edit'),
     },
     {
         title: 'Password',
-        href: editPassword(),
+        href: route('password.edit'),
     },
     {
         title: 'Appearance',
-        href: appearance(),
+        href: route('appearance'),
     },
 ];
 

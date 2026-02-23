@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { edit } from '@/routes/profile'
-import { send } from '@/routes/verification'
 import { Form, Head, Link, usePage, useForm, router } from '@inertiajs/vue3'
 import type { Page } from '@inertiajs/core'
 import type { StudentUser } from '@/types/user'
@@ -426,7 +424,7 @@ const yearLevelOptions = [
             <p class="-mt-4 text-sm text-muted-foreground">
               Your email address is unverified.
               <Link
-                :href="send()"
+                :href="route('verification.send')"
                 as="button"
                 class="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
               >
